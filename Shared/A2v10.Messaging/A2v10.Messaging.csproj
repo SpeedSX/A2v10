@@ -42,10 +42,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="EmailMessage.cs" />
+    <Compile Include="EmailMessageForSend.cs" />
     <Compile Include="EmailService.cs" />
     <Compile Include="IMessageForSend.cs" />
     <Compile Include="Message.cs" />
     <Compile Include="MessageAddress.cs" />
+    <Compile Include="MessageAttachment.cs" />
     <Compile Include="MessageProcessor.cs" />
     <Compile Include="MessageResolver.cs" />
     <Compile Include="MessageSendInfo.cs" />

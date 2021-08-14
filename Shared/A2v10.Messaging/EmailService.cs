@@ -98,7 +98,9 @@ namespace A2v10.Messaging
 					SetParameters(client, config);
 					using (var mm = new MailMessage())
 					{
-						if (config != null && !String.IsNullOrEmpty(config.from))
+						if (info.From != null && !String.IsNullOrEmpty(info.From.Address))
+							mm.From = new MailAddress(info.From.Address, info.From.DisplayName);
+						else if (config != null && !String.IsNullOrEmpty(config.from))
 							mm.From = new MailAddress(config.from);
 
 						SetAddress(info.To, mm.To);
@@ -113,11 +115,18 @@ namespace A2v10.Messaging
 						mm.Subject = info.Subject;
 						HackSubjectEncoding(mm, info.Subject);
 
-
 						mm.Body = info.Body;
 
 						mm.IsBodyHtml = true;
 
+						// attachments
+						if (info.Attachments != null) {
+							foreach (var att in info.Attachments)
+							{
+								//mm.Attachments.Add(new Attachment(att.Stream, new ContentType(att.Mime)));
+								mm.Attachments.Add(new Attachment(att.Stream, att.Name, att.Mime));
+							}
+						}
 						//????
 						//var av = AlternateView.CreateAlternateViewFromString(body, Encoding.UTF8, "text/html");
 						//mm.AlternateViews.Add(av);
