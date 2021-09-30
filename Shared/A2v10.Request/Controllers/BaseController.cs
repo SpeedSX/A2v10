@@ -12,6 +12,7 @@ using A2v10.Data.Interfaces;
 using System.Threading;
 using System.Web;
 using A2v10.Request.Properties;
+using System.Collections.Generic;
 
 namespace A2v10.Request
 {
@@ -287,6 +288,7 @@ namespace A2v10.Request
 				throw new InvalidOperationException("Service 'IRenderer' not registered");
 
 			var typeChecker = _host.CheckTypes(rw.Path, rw.checkTypes, model);
+
 
 			var msi = new ModelScriptInfo()
 			{

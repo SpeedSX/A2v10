@@ -69,6 +69,17 @@
     <None Include="Bootstrap\sales\waybill\model.json" />
     <None Include="Bootstrap\sales\waybill\waybill.mrt" />
     <None Include="Bootstrap\sales\waybill\waybill.xlsx" />
+    <Content Include="Admin\_assets\app.css" />
+    <Content Include="Admin\_assets\app.js" />
+    <Content Include="Admin\_assets\app.min.css">
+      <DependentUpon>app.css</DependentUpon>
+    </Content>
+    <Content Include="Admin\_assets\app.min.js">
+      <DependentUpon>app.js</DependentUpon>
+    </Content>
+    <Content Include="Admin\_assets\diagram.css" />
+    <Content Include="Admin\_assets\extensioncomponents.js" />
+    <Content Include="Admin\_assets\inputmask.js" />
     <Content Include="Bootstrap\_layout\bootstrap.css" />
     <Content Include="Bootstrap\_layout\bootstrap.min.css">
       <DependentUpon>bootstrap.css</DependentUpon>
@@ -80,6 +91,7 @@
       <DependentUpon>compilerconfig.json</DependentUpon>
     </None>
     <None Include="Develop\agent\model.json" />
+    <None Include="Develop\bpmn\catalog\model.json" />
     <None Include="Develop\common\Entity\model.json" />
     <None Include="Develop\dashboard\model.json" />
     <None Include="Develop\entity\model.json" />
@@ -140,6 +152,12 @@
     </Content>
     <TypeScriptCompile Include="Develop\dashboard\javascript.d.ts" />
     <TypeScriptCompile Include="Develop\dashboard\server2.module.ts" />
+    <Content Include="Develop\bpmn\catalog\edit.template.js" />
+    <Page Include="Develop\bpmn\catalog\edit.view.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Content Include="Develop\bpmn\catalog\edit.view.html" />
     <Content Include="Develop\dashboard\server.module.js" />
     <Content Include="App_application\%40types\platform.d.ts" />
     <TypeScriptCompile Include="Bootstrap\sales\invoice\invoice2.template.ts" />
@@ -798,6 +816,12 @@
       <SubType>Designer</SubType>
     </Content>
     <None Include="Develop\purchase\Goods\test.dialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Develop\bpmn\catalog\index.view.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </None>

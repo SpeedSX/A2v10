@@ -32,6 +32,24 @@
 			"title": "Профіль",
 			"icon": "user",
 			"url": "/purchase/supplier"
+		},
+		{
+			"type": "separator"
+		},
+		{
+			"type": "external",
+			"title": "External",
+			"icon": "file",
+			"url": "https://a2v10.com/$(lang)"
+		},
+		{
+			"type": "dialog",
+			"title": "Dialog",
+			"icon": "access",
+			"url": "/entity/editGoods/105"
+		},
+		{
+			"type": "separator"
 		}
 	]
 }

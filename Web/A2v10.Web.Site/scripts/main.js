@@ -1600,7 +1600,7 @@ app.modules['std:modelInfo'] = function () {
 
 // Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-// 20210620-7785
+// 20210924-7805
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1643,8 +1643,14 @@ app.modules['std:http'] = function () {
 					if (ct.startsWith('text/'))
 						txt = await response.text();
 					throw txt;
+				case 401: // Unauthorized
+					setTimeout(() => {
+						window.location.assign('/');
+					}, 10);
+					throw '__blank__';
+					break;
 				case 473: /*non standard */
-					if (response.statusText === 'Unauthorized') {
+					if ((response.statusText || (await response.text())) === 'Unauthorized') {
 						// go to login page
 						setTimeout(() => {
 							window.location.assign('/');
@@ -1721,6 +1727,8 @@ app.modules['std:http'] = function () {
 			eventBus.$emit('beginLoad');
 			doRequest('GET', url)
 				.then(function (html) {
+					if (!html)
+						return;
 					if (html.startsWith('<!DOCTYPE')) {
 						// full page - may be login?
 						window.location.assign('/');
@@ -1765,6 +1773,8 @@ app.modules['std:http'] = function () {
 					eventBus.$emit('endLoad');
 				})
 				.catch(function (error) {
+					if (error == '__blank__')
+						return;
 					reject(error);
 					eventBus.$emit('endLoad');
 				});
@@ -10248,15 +10258,14 @@ Vue.component('a2-panel', {
 		}
 	});
 })();
-// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-/*20190816-7525*/
+/*20210914-7803*/
 /*components/newbutton.js*/
 
 (function () {
 
 	const store = component('std:store');
-	const urltools = require('std:url');
 	const eventBus = require('std:eventBus');
 
 	const newButtonTemplate =
@@ -10327,16 +10336,16 @@ Vue.component('a2-panel', {
 					}
 				}
 				cmd = cmd || '';
-				if (cmd.startsWith('navigate:')) {
+				if (cmd.startsWith('navigate:'))
 					this.navigate(cmd.substring(9));
-				} else if (cmd.startsWith('dialog:')) {
+				else if (cmd.startsWith('dialog:'))
 					this.dialog(cmd.substring(7), requeryAfter);
-				} else {
+				else if (cmd.startsWith('external:'))
+					window.open(cmd.substring(9), '_blank');
+				else
 					alert('invalid command:' + cmd);
-				}
 			},
 			navigate(url) {
-				//let urlToNavigate = urltools.createUrlForNavigate(url);
 				this.$store.commit('navigate', { url: url });
 			},
 			dialog(url, requeryAfter) {
@@ -11459,11 +11468,10 @@ Vue.directive('resize', {
 
 // Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-/*20210729-7797*/
+/*20210924-7805*/
 // controllers/base.js
 
 (function () {
-
 
 	const eventBus = require('std:eventBus');
 	const utils = require('std:utils');
@@ -11478,6 +11486,8 @@ Vue.directive('resize', {
 
 	const store = component('std:store');
 	const documentTitle = component('std:doctitle', true /*no error*/);
+
+	const __blank__ = "__blank__";
 
 	let __updateStartTime = 0;
 	let __createStartTime = 0;
@@ -11694,6 +11704,8 @@ Vue.directive('resize', {
 							self.$toast(toast);
 						self.$notifyOwner(newId, toast);
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
 						self.$alertUi(msg);
 					});
 				});
@@ -11734,7 +11746,7 @@ Vue.directive('resize', {
 						else
 							throw new Error('Invalid response type for $invoke');
 					}).catch(function (msg) {
-						if (msg === '__blank__')
+						if (msg === __blank__)
 							return; // already done
 						if (opts && opts.catchError) {
 							reject(msg);
@@ -11819,6 +11831,8 @@ Vue.directive('resize', {
 							throw new Error('Invalid response type for $reload');
 						}
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return; // already done
 						self.$alertUi(msg);
 					});
 				});
@@ -11999,6 +12013,8 @@ Vue.directive('resize', {
 						if (self.__destroyed__) return;
 						elem.$remove(); // without confirm
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
 						self.$alertUi(msg);
 					});
 				}
@@ -12539,6 +12555,8 @@ Vue.directive('resize', {
 						}
 						resolve(arr);
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
 						self.$alertUi(msg);
 						reject(arr);
 					});
@@ -12595,6 +12613,8 @@ Vue.directive('resize', {
 						}
 						resolve(arr);
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
 						self.$alertUi(msg);
 					});
 					arr.$loaded = true;
@@ -13273,7 +13293,7 @@ Vue.directive('resize', {
 })();	
 // Copyright © 2021 Alex Kukhtin. All rights reserved.
 
-/*20210713-7795*/
+/*20210914-7803*/
 /* controllers/appheader.js */
 
 (function () {
@@ -13312,7 +13332,10 @@ Vue.directive('resize', {
 			<span class="caret"></span>
 		</button>
 		<div class="dropdown-menu menu down-left">
-			<a v-if="!isSinglePage " v-for="(itm, itmIndex) in profileItems" @click.prevent="doProfileMenu(itm)" class="dropdown-item" tabindex="-1"><i class="ico" :class="'ico-' + itm.icon"></i> <span v-text="itm.title" :key="itmIndex"></span></a>
+			<template v-if="!isSinglePage " v-for="(itm, itmIndex) in profileItems">
+				<div class="divider" v-if="itm.type === 'separator'"></div>
+				<a v-else @click.prevent="doProfileMenu(itm)" class="dropdown-item" tabindex="-1"><i class="ico" :class="'ico-' + itm.icon"></i> <span v-text="itm.title" :key="itmIndex"></span></a>
+			</template>
 			<a v-if="isChangePasswordEnabled" @click.prevent="changePassword" class="dropdown-item" tabindex="-1"><i class="ico ico-access"></i> <span v-text="locale.$ChangePassword"></span></a>
 			<div class="divider"></div>
 			<form id="logoutForm" method="post" action="/account/logoff">
@@ -13397,12 +13420,31 @@ Vue.directive('resize', {
 				this.$store.commit('navigate', { url: menuUrl, title: opts.title });
 			},
 			doProfileMenu(itm) {
-				this.$store.commit('navigate', { url: itm.url });
+				switch (itm.type || '') {
+					case '':
+					case 'page':
+						this.$store.commit('navigate', { url: itm.url });
+						break;
+					case 'dialog':
+						this.dialog(itm.url);
+						break;
+					case 'external':
+						window.open(itm.url, '_blank');
+						break;
+					default:
+						alert('Unknown profile item type');
+				}
 			},
 			clickMenu() {
 				if (this.isNavBarMenu) {
 					eventBus.$emit('clickNavMenu', true);
 				}
+			},
+			dialog(url) {
+				const dlgData = { promise: null };
+				eventBus.$emit('modaldirect', url, dlgData);
+				dlgData.promise.then(function (r) {
+				});
 			}
 		}
 	};
