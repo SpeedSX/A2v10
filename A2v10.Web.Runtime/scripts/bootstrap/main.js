@@ -1208,9 +1208,9 @@ app.modules['std:period'] = function () {
 	}
 };
 
-// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-/*20190411-7483*/
+/*20211027-7807*/
 /* services/url.js */
 
 app.modules['std:url'] = function () {
@@ -1393,6 +1393,9 @@ app.modules['std:url'] = function () {
 		}
 		if (url.endsWith('new') && urlId === 'new')
 			urlId = '';
+		// special behaviour for main menu urls
+		if (url.split('/').length === 3 && urlId === 'new')
+			urlId = '';
 		return combine(url, urlId) + qs;
 	}
 
@@ -1446,7 +1449,7 @@ app.modules['std:url'] = function () {
 
 // Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-// 20210620-7785
+// 20210924-7805
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1489,8 +1492,14 @@ app.modules['std:http'] = function () {
 					if (ct.startsWith('text/'))
 						txt = await response.text();
 					throw txt;
+				case 401: // Unauthorized
+					setTimeout(() => {
+						window.location.assign('/');
+					}, 10);
+					throw '__blank__';
+					break;
 				case 473: /*non standard */
-					if (response.statusText === 'Unauthorized') {
+					if ((response.statusText || (await response.text())) === 'Unauthorized') {
 						// go to login page
 						setTimeout(() => {
 							window.location.assign('/');
@@ -1567,6 +1576,8 @@ app.modules['std:http'] = function () {
 			eventBus.$emit('beginLoad');
 			doRequest('GET', url)
 				.then(function (html) {
+					if (!html)
+						return;
 					if (html.startsWith('<!DOCTYPE')) {
 						// full page - may be login?
 						window.location.assign('/');
@@ -1611,6 +1622,8 @@ app.modules['std:http'] = function () {
 					eventBus.$emit('endLoad');
 				})
 				.catch(function (error) {
+					if (error == '__blank__')
+						return;
 					reject(error);
 					eventBus.$emit('endLoad');
 				});
@@ -2508,9 +2521,9 @@ app.modules['std:mask'] = function () {
 	}
 };
 
-// Copyright © 2015-2020 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-// 20200713-7685
+// 20201004-7806
 /* services/html.js */
 
 app.modules['std:html'] = function () {
@@ -2525,7 +2538,8 @@ app.modules['std:html'] = function () {
 		openUrl,
 		printDirect,
 		removePrintFrame,
-		updateDocTitle
+		updateDocTitle,
+		uploadFile
 	};
 
 	function getColumnsWidth(elem) {
@@ -2634,6 +2648,22 @@ app.modules['std:html'] = function () {
 		if (document.title === title)
 			return;
 		document.title = title;
+	}
+
+	function uploadFile(accept) {
+		return new Promise(function (resolve, reject) {
+			let input = document.createElement('input');
+			input.setAttribute("type", "file");
+			if (accept)
+				input.setAttribute('accept', accept);
+			input.style = "display:none";
+			input.addEventListener('change', ev => {
+				resolve(ev.target.files[0]);
+			});
+			document.body.appendChild(input); // FF!
+			input.click();
+			document.body.removeChild(input);
+		});
 	}
 };
 
@@ -4411,11 +4441,10 @@ app.modules['std:impl:array'] = function () {
 
 // Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-/*20210729-7797*/
+/*20211028-7807*/
 // controllers/base.js
 
 (function () {
-
 
 	const eventBus = require('std:eventBus');
 	const utils = require('std:utils');
@@ -4427,9 +4456,12 @@ app.modules['std:impl:array'] = function () {
 	const modelInfo = require('std:modelInfo');
 	const platform = require('std:platform');
 	const htmlTools = require('std:html', true /*no error*/);
+	const httpTools = require('std:http');
 
 	const store = component('std:store');
 	const documentTitle = component('std:doctitle', true /*no error*/);
+
+	const __blank__ = "__blank__";
 
 	let __updateStartTime = 0;
 	let __createStartTime = 0;
@@ -4646,6 +4678,8 @@ app.modules['std:impl:array'] = function () {
 							self.$toast(toast);
 						self.$notifyOwner(newId, toast);
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
 						self.$alertUi(msg);
 					});
 				});
@@ -4686,7 +4720,7 @@ app.modules['std:impl:array'] = function () {
 						else
 							throw new Error('Invalid response type for $invoke');
 					}).catch(function (msg) {
-						if (msg === '__blank__')
+						if (msg === __blank__)
 							return; // already done
 						if (opts && opts.catchError) {
 							reject(msg);
@@ -4771,6 +4805,8 @@ app.modules['std:impl:array'] = function () {
 							throw new Error('Invalid response type for $reload');
 						}
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return; // already done
 						self.$alertUi(msg);
 					});
 				});
@@ -4846,6 +4882,24 @@ app.modules['std:impl:array'] = function () {
 				const root = window.$$rootUrl;
 				url = urltools.combine('/file', url.replace('.', '-'));
 				window.location = root + url;
+			},
+
+			async $upload(url, accept) {
+				let root = window.$$rootUrl;
+				try {
+					let file = await htmlTools.uploadFile(accept, url);
+					var dat = new FormData();
+					dat.append('file', file, file.name);
+					let uploadUrl = urltools.combine(root, '_file', url);
+					uploadUrl = urltools.createUrlForNavigate(uploadUrl);
+					return await httpTools.upload(uploadUrl, dat);
+				} catch (err) {
+					err = err || 'unknown error';
+					if (err.indexOf('UI:') === 0)
+						this.$alert(err);
+					else
+						alert(err);
+				}
 			},
 
 			$file(url, arg, opts) {
@@ -4951,6 +5005,8 @@ app.modules['std:impl:array'] = function () {
 						if (self.__destroyed__) return;
 						elem.$remove(); // without confirm
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
 						self.$alertUi(msg);
 					});
 				}
@@ -5085,6 +5141,12 @@ app.modules['std:impl:array'] = function () {
 
 			$inlineClose(id, result) {
 				eventBus.$emit('inlineDialog', { cmd: 'close', id: id, result: result });
+			},
+
+			$inlineDepth() {
+				let opts = { count: 0 };
+				eventBus.$emit('inlineDialogCount', opts);
+				return opts.count;
 			},
 
 			$dialog(command, url, arg, query, opts) {
@@ -5491,6 +5553,8 @@ app.modules['std:impl:array'] = function () {
 						}
 						resolve(arr);
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
 						self.$alertUi(msg);
 						reject(arr);
 					});
@@ -5547,6 +5611,8 @@ app.modules['std:impl:array'] = function () {
 						}
 						resolve(arr);
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
 						self.$alertUi(msg);
 					});
 					arr.$loaded = true;
@@ -5660,6 +5726,7 @@ app.modules['std:impl:array'] = function () {
 					$showDialog: this.$showDialog,
 					$inlineOpen: this.$inlineOpen,
 					$inlineClose: this.$inlineClose,
+					$inlineDepth: this.$inlineDepth,
 					$saveModified: this.$saveModified,
 					$asyncValid: this.$asyncValid,
 					$toast: this.$toast,
@@ -5671,7 +5738,8 @@ app.modules['std:impl:array'] = function () {
 					$setFilter: this.$setFilter,
 					$expand: this.$expand,
 					$focus: this.$focus,
-					$report: this.$report
+					$report: this.$report,
+					$upload: this.$upload
 				};
 				Object.defineProperty(ctrl, "$isDirty", {
 					enumerable: true,

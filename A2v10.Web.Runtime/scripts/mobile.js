@@ -928,9 +928,9 @@ app.modules['std:utils'] = function () {
 	}
 };
 
-// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-/*20190411-7483*/
+/*20211027-7807*/
 /* services/url.js */
 
 app.modules['std:url'] = function () {
@@ -1112,6 +1112,9 @@ app.modules['std:url'] = function () {
 				urlId = 'new';
 		}
 		if (url.endsWith('new') && urlId === 'new')
+			urlId = '';
+		// special behaviour for main menu urls
+		if (url.split('/').length === 3 && urlId === 'new')
 			urlId = '';
 		return combine(url, urlId) + qs;
 	}
@@ -1600,7 +1603,7 @@ app.modules['std:modelInfo'] = function () {
 
 // Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-// 20210620-7785
+// 20210924-7805
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1643,8 +1646,14 @@ app.modules['std:http'] = function () {
 					if (ct.startsWith('text/'))
 						txt = await response.text();
 					throw txt;
+				case 401: // Unauthorized
+					setTimeout(() => {
+						window.location.assign('/');
+					}, 10);
+					throw '__blank__';
+					break;
 				case 473: /*non standard */
-					if (response.statusText === 'Unauthorized') {
+					if ((response.statusText || (await response.text())) === 'Unauthorized') {
 						// go to login page
 						setTimeout(() => {
 							window.location.assign('/');
@@ -1721,6 +1730,8 @@ app.modules['std:http'] = function () {
 			eventBus.$emit('beginLoad');
 			doRequest('GET', url)
 				.then(function (html) {
+					if (!html)
+						return;
 					if (html.startsWith('<!DOCTYPE')) {
 						// full page - may be login?
 						window.location.assign('/');
@@ -1765,6 +1776,8 @@ app.modules['std:http'] = function () {
 					eventBus.$emit('endLoad');
 				})
 				.catch(function (error) {
+					if (error == '__blank__')
+						return;
 					reject(error);
 					eventBus.$emit('endLoad');
 				});
@@ -4319,9 +4332,9 @@ app.modules['std:tools'] = function () {
 	}
 };
 
-// Copyright © 2015-2020 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-// 20200713-7685
+// 20201004-7806
 /* services/html.js */
 
 app.modules['std:html'] = function () {
@@ -4336,7 +4349,8 @@ app.modules['std:html'] = function () {
 		openUrl,
 		printDirect,
 		removePrintFrame,
-		updateDocTitle
+		updateDocTitle,
+		uploadFile
 	};
 
 	function getColumnsWidth(elem) {
@@ -4445,6 +4459,22 @@ app.modules['std:html'] = function () {
 		if (document.title === title)
 			return;
 		document.title = title;
+	}
+
+	function uploadFile(accept) {
+		return new Promise(function (resolve, reject) {
+			let input = document.createElement('input');
+			input.setAttribute("type", "file");
+			if (accept)
+				input.setAttribute('accept', accept);
+			input.style = "display:none";
+			input.addEventListener('change', ev => {
+				resolve(ev.target.files[0]);
+			});
+			document.body.appendChild(input); // FF!
+			input.click();
+			document.body.removeChild(input);
+		});
 	}
 };
 
@@ -9069,7 +9099,7 @@ TODO:
 
 // Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-// 20210512-7774
+// 20211028-7807
 // components/modal.js
 
 
@@ -9164,17 +9194,17 @@ TODO:
 				if (!opts.down)
 					return;
 				// flex centered window
-				let dx = (event.pageX - opts.offset.x) * 2;
-				let dy = (event.pageY - opts.offset.y) * 2;
+				let dx = (event.pageX - opts.offset.x);
+				let dy = (event.pageY - opts.offset.y);
 				let mx = opts.init.x + dx;
 				let my = opts.init.y + dy;
 				// fit
 				let maxX = window.innerWidth - opts.init.cx;
-				let maxY = window.innerHeight - opts.init.cy - 24 /*footer height*/;
+				//let maxY = window.innerHeight - opts.init.cy - 24 /*footer height*/;
 				//if (my < 0) my = 0;
-				if (mx < -maxX) mx = -maxX;
+				if (mx < 0) mx = 0;
 				if (mx > maxX) mx = maxX;
-				if (my < -maxY) my = -maxY;
+				if (my < 0) my = 0;
 				//if (my > maxY) my = maxY; // any value available
 				//console.warn(`dx:${dx}, dy:${dy}, mx:${mx}, my:${my}, cx:${opts.init.cx}`);
 				mw.style.marginLeft = mx + 'px';
@@ -10062,7 +10092,7 @@ Vue.component('a2-panel', {
 });
 // Copyright © 2020-2021 Alex Kukhtin. All rights reserved.
 
-// 20201130-7773
+// 20211028-7807
 // components/inlinedialog.js
 (function () {
 	const eventBus = require('std:eventBus');
@@ -10128,16 +10158,24 @@ Vue.component('a2-panel', {
 							this.open = true;
 						}, 50); // same as shell
 						break;
+					case 'count':
+						opts.count = __inlineStack.length;
+						break;
 					default:
 						console.error(`invalid inline command '${opts.cmd}'`);
 				}
+			},
+			__inlineCount(opts) {
+				opts.count = __inlineStack.length;
 			}
 		},
 		created() {
 			eventBus.$on('inlineDialog', this.__inlineEvent);
+			eventBus.$on('inlineDialogCount', this.__inlineCount);
 		},
 		beforeDestroy() {
 			eventBus.$off('inlineDialog', this.__inlineEvent);
+			eventBus.$off('inlineDialogCount', this.__inlineCount);
 		}
 	});
 
@@ -11458,11 +11496,10 @@ Vue.directive('resize', {
 
 // Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-/*20210729-7797*/
+/*20211028-7807*/
 // controllers/base.js
 
 (function () {
-
 
 	const eventBus = require('std:eventBus');
 	const utils = require('std:utils');
@@ -11474,9 +11511,12 @@ Vue.directive('resize', {
 	const modelInfo = require('std:modelInfo');
 	const platform = require('std:platform');
 	const htmlTools = require('std:html', true /*no error*/);
+	const httpTools = require('std:http');
 
 	const store = component('std:store');
 	const documentTitle = component('std:doctitle', true /*no error*/);
+
+	const __blank__ = "__blank__";
 
 	let __updateStartTime = 0;
 	let __createStartTime = 0;
@@ -11693,6 +11733,8 @@ Vue.directive('resize', {
 							self.$toast(toast);
 						self.$notifyOwner(newId, toast);
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
 						self.$alertUi(msg);
 					});
 				});
@@ -11733,7 +11775,7 @@ Vue.directive('resize', {
 						else
 							throw new Error('Invalid response type for $invoke');
 					}).catch(function (msg) {
-						if (msg === '__blank__')
+						if (msg === __blank__)
 							return; // already done
 						if (opts && opts.catchError) {
 							reject(msg);
@@ -11818,6 +11860,8 @@ Vue.directive('resize', {
 							throw new Error('Invalid response type for $reload');
 						}
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return; // already done
 						self.$alertUi(msg);
 					});
 				});
@@ -11893,6 +11937,24 @@ Vue.directive('resize', {
 				const root = window.$$rootUrl;
 				url = urltools.combine('/file', url.replace('.', '-'));
 				window.location = root + url;
+			},
+
+			async $upload(url, accept) {
+				let root = window.$$rootUrl;
+				try {
+					let file = await htmlTools.uploadFile(accept, url);
+					var dat = new FormData();
+					dat.append('file', file, file.name);
+					let uploadUrl = urltools.combine(root, '_file', url);
+					uploadUrl = urltools.createUrlForNavigate(uploadUrl);
+					return await httpTools.upload(uploadUrl, dat);
+				} catch (err) {
+					err = err || 'unknown error';
+					if (err.indexOf('UI:') === 0)
+						this.$alert(err);
+					else
+						alert(err);
+				}
 			},
 
 			$file(url, arg, opts) {
@@ -11998,6 +12060,8 @@ Vue.directive('resize', {
 						if (self.__destroyed__) return;
 						elem.$remove(); // without confirm
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
 						self.$alertUi(msg);
 					});
 				}
@@ -12132,6 +12196,12 @@ Vue.directive('resize', {
 
 			$inlineClose(id, result) {
 				eventBus.$emit('inlineDialog', { cmd: 'close', id: id, result: result });
+			},
+
+			$inlineDepth() {
+				let opts = { count: 0 };
+				eventBus.$emit('inlineDialogCount', opts);
+				return opts.count;
 			},
 
 			$dialog(command, url, arg, query, opts) {
@@ -12538,6 +12608,8 @@ Vue.directive('resize', {
 						}
 						resolve(arr);
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
 						self.$alertUi(msg);
 						reject(arr);
 					});
@@ -12594,6 +12666,8 @@ Vue.directive('resize', {
 						}
 						resolve(arr);
 					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
 						self.$alertUi(msg);
 					});
 					arr.$loaded = true;
@@ -12707,6 +12781,7 @@ Vue.directive('resize', {
 					$showDialog: this.$showDialog,
 					$inlineOpen: this.$inlineOpen,
 					$inlineClose: this.$inlineClose,
+					$inlineDepth: this.$inlineDepth,
 					$saveModified: this.$saveModified,
 					$asyncValid: this.$asyncValid,
 					$toast: this.$toast,
@@ -12718,7 +12793,8 @@ Vue.directive('resize', {
 					$setFilter: this.$setFilter,
 					$expand: this.$expand,
 					$focus: this.$focus,
-					$report: this.$report
+					$report: this.$report,
+					$upload: this.$upload
 				};
 				Object.defineProperty(ctrl, "$isDirty", {
 					enumerable: true,

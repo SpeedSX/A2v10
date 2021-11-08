@@ -9,6 +9,7 @@ const template = {
 		'TRoot.$text'() {
 			return 'button text';
 		},
+		'TRoot.$InlineDepth'() { console.dir(this.$vm); return this.$vm ? this.$vm.$inlineDepth() : 0; },
 		'TRoot.$Arg142'() { return { Id: 142 };}
 	},
 	methods: {
@@ -32,16 +33,22 @@ const template = {
 		dlgCommand(arg) {
 			alert('dlgCommand:' + arg);
 		},
-		async javascript() {
+		javascript() {
+			this.$ctrl.$navigate('/sales/invoice'); //, {Id: ''});
+			/*
 			let r = await this.$ctrl.$invoke('javascript', { Id: 77, StrVal: 'string value', DateVal: du.today(), NumVal: 55.32 });
 			console.dir(r);
 			alert(JSON.stringify(r));
+			*/
 		},
 		async wait() {
 			let r = await this.$ctrl.$invoke('wait');
 		},
 		fetchdbevents() {
 			this.$ctrl.$invoke('fetchDbEvents');
+		},
+		testDepth() {
+			alert(this.$ctrl.$inlineDepth());
 		}
 	}
 };
