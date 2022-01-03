@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2020 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
 using System;
 using System.Configuration;
@@ -60,12 +60,14 @@ namespace BackgroundProcessor
 			{
 				var profiler = new NullProfiler();
 				var localizer = new NullLocalizer();
-				var host = new BackgroundApplicationHost(profiler);
+				var host = new BackgroundApplicationHost(profiler, loc);
 				var dbContext = new SqlDbContext(profiler, host, localizer);
 				var logger = new BackgroundLogger(dbContext);
 				var workflow = new WorkflowEngine(host, dbContext, null);
 				var emailService = new EmailService(logger, host);
-				var messaging = new MessageProcessor(host, dbContext, emailService, logger);
+                var smsService = new SmsService(dbContext, logger);
+                var messaging = new MessageProcessor(host, dbContext, emailService, smsService, logger);
+				var userLocale = new BackgroundUserLocale();
 
 				loc.RegisterService<IProfiler>(profiler);
 				loc.RegisterService<ILocalizer>(localizer);
@@ -74,6 +76,7 @@ namespace BackgroundProcessor
 				loc.RegisterService<IApplicationHost>(host);
 				loc.RegisterService<IWorkflowEngine>(workflow);
 				loc.RegisterService<IMessaging>(messaging);
+				loc.RegisterService<IUserLocale>(userLocale);
 			};
 
 			ServiceLocator.GetCurrentLocator = () =>

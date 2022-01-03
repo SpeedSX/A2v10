@@ -20,15 +20,17 @@ namespace A2v10.Messaging
 		readonly private IApplicationHost _host;
 		readonly private IDbContext _dbContext;
 		readonly private IMessageService _emailService;
+        readonly private ISmsService _smsService;
 		readonly private ILogger _logger;
 
-		public MessageProcessor(IApplicationHost host, IDbContext dbContext, IMessageService emailService, ILogger logger)
+		public MessageProcessor(IApplicationHost host, IDbContext dbContext, IMessageService emailService, ISmsService smsService, ILogger logger)
 		{
 			_host = host;
 			_dbContext = dbContext;
 			_emailService = emailService;
+            _smsService = smsService;
 			_logger = logger;
-		}
+        }
 
 		public IQueuedMessage CreateQueuedMessage()
 		{
@@ -67,7 +69,8 @@ namespace A2v10.Messaging
 			Int64 msgId = md.Eval<Int64>("Result.Id");
 			if (message.Immediately)
 			{
-				FireAndForget(SendMessageAsync(msgId));
+                SendMessageAsync(msgId).Wait();
+                //FireAndForget(SendMessageAsync(msgId));
 			}
 			return msgId;
 		}
@@ -102,11 +105,11 @@ namespace A2v10.Messaging
 			msg.Set(name, arr);
 		}
 
-		public async Task SendMessageAsync(Int64 msgId)
+        public async Task SendMessageAsync(Int64 msgId)
 		{
 			var msgModel = await _dbContext.LoadModelAsync(String.Empty, "a2messaging.[Message.Queue.Load]", new { Id = msgId });
-			IMessageForSend msg = await ResolveMessageAsync(msgModel);
-			await msg.SendAsync(_emailService);
+			IMessageForSend msg = await ResolveMessageAsync(msgModel);            
+			await msg.SendAsync(_emailService, _smsService);
 		}
 
 		Task<IMessageForSend> ResolveMessageAsync(IDataModel dm)
@@ -129,5 +132,5 @@ namespace A2v10.Messaging
 				return tm.ResolveAndSendAsync(resolver);
 			}
 		}
-	}
+    }
 }

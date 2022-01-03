@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
 using System;
 using System.Web;
@@ -22,6 +22,8 @@ namespace A2v10.Web.Mvc.Start
 {
 	public static partial class Startup
 	{
+        private static IServiceLocator _currentLocator;
+
 		public static void StartServices()
 		{
 			// DI ready
@@ -29,7 +31,7 @@ namespace A2v10.Web.Mvc.Start
 			{
 				IProfiler profiler = new WebProfiler();
 				IUserLocale userLocale = new WebUserLocale();
-				IApplicationHost host = new WebApplicationHost(profiler, userLocale);
+				IApplicationHost host = new WebApplicationHost(profiler, userLocale, locator);
 				ILocalizer localizer = new WebLocalizer(host, userLocale);
 				ITokenProvider tokenProvider = new WebTokenProvider();
 				IDbContext dbContext = new SqlDbContext(
@@ -40,14 +42,14 @@ namespace A2v10.Web.Mvc.Start
 					tokenProvider);
 				ILogger logger = new WebLogger(host, dbContext);
 				IMessageService emailService = new IdentityEmailService(logger, host);
-				IMessaging messaging = new MessageProcessor(host, dbContext, emailService, logger);
+                ISmsService smsService = new SmsService(dbContext, logger);
 				IRenderer renderer = new XamlRenderer(profiler, host);
-				IWorkflowEngine workflowEngine = new WorkflowEngine(host, dbContext, messaging);
 				IDataScripter scripter = new VueDataScripter(host, localizer);
-				ISmsService smsService = new SmsService(dbContext, logger);
 				IExternalLoginManager externalLoginManager = new ExternalLoginManager(dbContext);
 				IUserStateManager userStateManager = new WebUserStateManager(host, dbContext);
-				IExternalDataProvider dataProvider = new ExternalDataContext();
+                IMessaging messaging = new MessageProcessor(host, dbContext, emailService, smsService, logger);
+                IWorkflowEngine workflowEngine = new WorkflowEngine(host, dbContext, messaging);
+                IExternalDataProvider dataProvider = new ExternalDataContext();
 				IScriptProcessor scriptProcessor = new ScriptProcessor(scripter, host);
 				IHttpService httpService = new HttpService();
 				IJavaScriptEngine javaScriptEngine = new JavaScriptEngine(dbContext, host);
@@ -76,14 +78,28 @@ namespace A2v10.Web.Mvc.Start
 					HttpContext.Current.Items.Add("ServiceLocator", locator);
 			};
 
+            IServiceLocator GetOrCreateStatic()
+            {
+                if (_currentLocator == null)
+                    _currentLocator = new ServiceLocator();
+                return _currentLocator;
+            }
+
 			ServiceLocator.GetCurrentLocator = () =>
 			{
 				if (HttpContext.Current == null)
-					throw new InvalidProgramException("There is no http context");
+                {
+                    return GetOrCreateStatic();
+                }
 				var currentContext = HttpContext.Current;
 				var locator = currentContext.Items["ServiceLocator"];
-				if (locator == null)
-					new ServiceLocator();
+                if (locator == null)
+                {
+                    var loc = new ServiceLocator(); // side effects
+                    var fromHttp = HttpContext.Current.Items["ServiceLocator"] as IServiceLocator;
+                    if (loc != fromHttp)
+                        throw new InvalidOperationException("Invalid service locator");
+                }
 				return HttpContext.Current.Items["ServiceLocator"] as IServiceLocator;
 			};
 		}

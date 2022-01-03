@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-/*20211028-7807*/
+/*20211210-7812*/
 // controllers/base.js
 
 (function () {
@@ -708,6 +708,10 @@
 				return opts.count;
 			},
 
+			$closeAllPopups() {
+				eventBus.$emit('closeAllPopups');
+			},
+
 			$dialog(command, url, arg, query, opts) {
 				if (this.$isReadOnly(opts))
 					return;
@@ -1015,6 +1019,8 @@
 
 			$saveModified(message, title) {
 				if (!this.$isDirty)
+					return true;
+				if (this.isIndex)
 					return true;
 				let self = this;
 				let dlg = {

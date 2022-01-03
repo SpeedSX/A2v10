@@ -1,9 +1,10 @@
-﻿// Copyright © 2015-2020 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
 using System;
 using System.Configuration;
 using System.Dynamic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 using A2v10.Data.Interfaces;
@@ -11,17 +12,28 @@ using A2v10.Infrastructure;
 
 namespace BackgroundProcessor
 {
+	public class BackgroundUserLocale : IUserLocale
+	{
+		public String Locale { get; set; }
+		public String Language => Thread.CurrentThread.CurrentUICulture.TwoLetterISOLanguageName;
+		public String Language2 => Thread.CurrentThread.CurrentUICulture.TwoLetterISOLanguageName;
+	}
+
 	public class BackgroundApplicationHost : IApplicationHost, IDataConfiguration
 	{
 		private readonly IProfiler _profiler;
+        private readonly IServiceLocator _locator;
 
-		public BackgroundApplicationHost(IProfiler profiler)
+		public BackgroundApplicationHost(IProfiler profiler, IServiceLocator locator)
 		{
 			_profiler = profiler;
-		}
+            _locator = locator;
+
+        }
 
 		#region IApplicationHost
 		public IProfiler Profiler => _profiler;
+        public IServiceLocator Locator => _locator;
 		public Boolean Mobile => false;
 		public Boolean IsAdminMode => false;
 		public Boolean Embedded => false;

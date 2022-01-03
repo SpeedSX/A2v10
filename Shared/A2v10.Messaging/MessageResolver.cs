@@ -22,12 +22,13 @@ namespace A2v10.Messaging
 		private readonly ExpandoObject _msgParams;
 		private readonly ReportHelper _reportHelper;
 
+
 		public MessageResolver(IApplicationHost host, IDbContext dbContext, IDataModel msgModel)
 		{
 			_host = host;
 			_dbContext = dbContext;
 			_msgModel = msgModel;
-			_reportHelper = new ReportHelper();
+			_reportHelper = new ReportHelper(_host);
 			if (_msgModel == null) return;
 			_msgParams = new ExpandoObject();
 			var trgId = msgModel.Eval<Int64>("Message.TargetId");
@@ -160,6 +161,7 @@ namespace A2v10.Messaging
 		{
 			if (rep == null)
 				return null;
+			_reportHelper.SetupLicense();
 			var dm = await msg.GetDataModelAsync(_dbContext, _msgParams);
 			// get report source
 			using (Stream input = await ResolveStreamStringAsync(msg, rep.Report))
@@ -174,7 +176,7 @@ namespace A2v10.Messaging
 					if (rep.Model.Parameters != null)
 						foreach (var p in rep.Model.Parameters)
 							repPrms.Set(p.Key, await ResolveAsync(msg, p.Value?.Value));
-					repDataModel = await _dbContext.LoadModelAsync(rep.Model.Source, $"[{rep.Model.Schema}].[{rep.Model.Model}.Load]", repPrms);
+					repDataModel = await _dbContext.LoadModelAsync(rep.Model.Source, $"[{rep.Model.Schema}].[{rep.Model.Model}.Report]", repPrms);
 				}
 				var ms = new MemoryStream();
 				var repName = await _reportHelper.ExportDocumentAsync(input, repDataModel, ms);
