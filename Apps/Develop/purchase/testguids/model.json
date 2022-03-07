@@ -3,13 +3,15 @@
   "model": "TestGuid",
 	"actions": {
 		"index": {
-			"index": true,
+          "index": true,
+          "template": "index.template",
 			"view": "index.view"
 		}
 	},
 	"dialogs": {
-		"edit": {
-			"view": "edit.dialog"
-		}
+	  "edit": {
+		"template": "edit.template",
+		"view": "edit.dialog"
+	  }
 	}
 }

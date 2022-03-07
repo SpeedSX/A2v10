@@ -204,7 +204,7 @@ namespace A2v10.Web.Mvc.Controllers
 		[HandlAntiForgeryExecptionAttribute]
 		public async Task<ActionResult> LoginPOST()
 		{
-			String status = null;
+			String status;
 
 			try
 			{
@@ -313,7 +313,7 @@ namespace A2v10.Web.Mvc.Controllers
 			SendPage(page, ResourceHelper.RegisterTenantScript);
 		}
 
-		static ConcurrentDictionary<String, DateTime> _ddosChecker = new ConcurrentDictionary<String, DateTime>();
+		static readonly ConcurrentDictionary<String, DateTime> _ddosChecker = new ConcurrentDictionary<String, DateTime>();
 
 		public Int32 IsDDOS()
 		{
@@ -437,7 +437,9 @@ namespace A2v10.Web.Mvc.Controllers
 
 				if (!String.IsNullOrEmpty(model.Locale))
 				{
-					Response.Cookies.Add(new HttpCookie(LOCALE_COOKIE, model.Locale));
+                    var cookie = new HttpCookie(LOCALE_COOKIE, model.Locale);
+                    cookie.SameSite = SameSiteMode.Strict;
+                    Response.Cookies.Add(cookie);
 					_userLocale.Locale = model.Locale;
 				}
 
@@ -473,6 +475,14 @@ namespace A2v10.Web.Mvc.Controllers
 					await SendConfirmCode(user);
 
 					await SaveReferral(user.Id, model.Referral);
+
+					if (model.ExtraData != null && !model.ExtraData.IsEmpty())
+                    {
+						var prm = model.ExtraData.Clone(null);
+						prm.Set("UserId", user.Id);
+						await _dbContext.ExecuteExpandoAsync(_host.CatalogDataSource, "a2security.[SaveExtraData]", prm);
+                    }
+
 					SaveDDOSTime();
 
 					Session.Add(USERNAME_SESSIONKEY, user.UserName);
@@ -565,7 +575,7 @@ namespace A2v10.Web.Mvc.Controllers
 		[HandlAntiForgeryExecptionAttribute]
 		public async Task<ActionResult> ConfirmCodePost()
 		{
-			String status = String.Empty;
+			String status;
 			try
 			{
 
@@ -696,7 +706,7 @@ namespace A2v10.Web.Mvc.Controllers
 		[HandlAntiForgeryExecptionAttribute]
 		public async Task<ActionResult> ForgotPasswordCode()
 		{
-			String status = "Error";
+			String status;
 			try
 			{
 				ConfirmEmailModel model = GetModelFromBody<ConfirmEmailModel>();

@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("A2v10.Web.Runtime")]
-[assembly: AssemblyCopyright("Copyright © 2015-2021 AlexKukhtin. All rights reserved.")]
+[assembly: AssemblyCopyright("Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -30,5 +30,5 @@ using System.Runtime.InteropServices;
 //
 // You can specify all the values or you can default the Revision and Build Numbers 
 // by using the '*' as shown below:
-[assembly: AssemblyVersion("10.0.7818.0")]
-[assembly: AssemblyFileVersion("10.0.7818.0")]
+[assembly: AssemblyVersion("10.0.7826.0")]
+[assembly: AssemblyFileVersion("10.0.7826.0")]

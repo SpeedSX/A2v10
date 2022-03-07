@@ -9,8 +9,9 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Apps</RootNamespace>
     <AssemblyName>Apps</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -162,6 +163,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </None>
+    <Content Include="Develop\dashboard\server4.module.js" />
+    <Content Include="Develop\dashboard\server3.module.js" />
+    <Content Include="Develop\purchase\testguids\edit.template.js" />
+    <Content Include="Develop\purchase\testguids\index.template.js" />
     <None Include="Develop\Workflows\SendMessageWorkflow.xaml">
       <SubType>Designer</SubType>
     </None>
@@ -237,6 +242,8 @@
     <Content Include="Develop\include.module.js" />
     <Content Include="Develop\Workflows\mail_with_report.html" />
     <Content Include="Develop\Workflows\second-mail.html" />
+    <Content Include="Develop\_api\form\page1.html" />
+    <Content Include="Develop\_api\form\server.js" />
     <Content Include="Develop\_assets\extensioncomponents.js" />
     <Content Include="Develop\_assets\inputmask.js" />
     <Content Include="Develop\_emails\confirmemail.ru.html" />
@@ -248,6 +255,7 @@
     <Content Include="tsconfig.json" />
     <Content Include="Develop\_apiv2\test\agent\test.js" />
     <None Include="Develop\_apiv2\test\agent\model.json" />
+    <None Include="Develop\_api\form\model.json" />
     <None Include="Develop\_hooks\model.json" />
     <None Include="Develop\_tests\Tests.Runner.config" />
     <None Include="Samples\catalog\agent\model.json" />

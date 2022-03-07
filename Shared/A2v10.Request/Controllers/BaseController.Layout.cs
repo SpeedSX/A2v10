@@ -27,7 +27,7 @@ namespace A2v10.Request
 		public void Layout(TextWriter writer, IDictionary<String, String> prms, String localUrl)
 		{
 			var customLayout = _host.CustomLayout;
-			String layout = null;
+			String layout;
 			if (!String.IsNullOrEmpty(customLayout))
 			{
 				var layoutFile = customLayout.Replace("$(lang)", _userLocale.Language) + ".html";
@@ -147,7 +147,14 @@ namespace A2v10.Request
 				loadPrms.Set("Mobile", true);
 
 			IDataModel dm = await _dbContext.LoadModelAsync(_host.TenantDataSource, _host.CustomUserMenu, loadPrms);
-			SetUserStateFromData(dm);
+
+			// SetUserStateFromData(dm);
+			// ALWAYS from CATALOG
+			IDataModel stateModel = await _dbContext.LoadModelAsync(_host.CatalogDataSource, "[a2security].[UserStateInfo.Load]", loadPrms);
+			SetUserStateFromData(stateModel);
+			// and SetUserState to MENU
+			dm.Root.Set("UserState", stateModel.Root.Get<ExpandoObject>("UserState"));
+
 
 			ExpandoObject menuRoot = dm.Root.RemoveEmptyArrays();
 

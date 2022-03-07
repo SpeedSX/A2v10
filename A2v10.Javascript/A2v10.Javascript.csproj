@@ -9,11 +9,12 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>A2v10.Javascript</RootNamespace>
     <AssemblyName>A2v10.Javascript</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -58,6 +59,7 @@
     <Compile Include="JavaScriptEngine.cs" />
     <Compile Include="ScriptConfig.cs" />
     <Compile Include="ScriptEnvironment.cs" />
+    <Compile Include="SendSmsCommand.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
