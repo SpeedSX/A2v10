@@ -13,6 +13,18 @@
 
 	.side-bar-body, .tree-view {
 		height: 100%;
+
+		li.border-top {
+			border-top: 1px solid @menu-separator-color;
+			padding-top: @menu-separator-gap;
+			margin-top: @menu-separator-gap;
+		}
+
+		li.border-bottom {
+			border-bottom: 1px solid @menu-separator-color;
+			padding-bottom: @menu-separator-gap;
+			margin-bottom: @menu-separator-gap;
+		}
 	}
 
 	.side-bar-body .tree-view li > ul {

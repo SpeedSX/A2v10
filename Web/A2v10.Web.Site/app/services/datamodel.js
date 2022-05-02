@@ -1,12 +1,11 @@
-﻿/* Copyright © 2015-2021 Alex Kukhtin. All rights reserved.*/
+﻿/* Copyright © 2015-2022 Alex Kukhtin. All rights reserved.*/
 
-/*20210531-7776*/
+/*20220414-7837*/
 // services/datamodel.js
 
 /*
  * TODO: template & validate => /impl
  * treeImpl => /impl/tree
- * ensureType to std:utils
  */
 
 (function () {
@@ -67,18 +66,6 @@
 	}
 
 	const defPropertyGet = utils.func.defPropertyGet;
-
-	function ensureType(type, val) {
-		if (!utils.isDefined(val))
-			val = utils.defaultValue(type);
-		if (type === Number)
-			return utils.toNumber(val);
-		else if (type === String)
-			return utils.toString(val);
-		else if (type === Date && !utils.isDate(val))
-			return utils.date.parse('' + val);
-		return val;
-	}
 
 	const propFromPath = utils.model.propFromPath;
 
@@ -141,7 +128,7 @@
 					ctor = ctor.type;
 				}
 				if (!isjson) {
-					val = ensureType(ctor, val);
+					val = utils.ensureType(ctor, val);
 				}
 				if (val === this._src_[prop])
 					return;
@@ -1158,26 +1145,31 @@
 	}
 
 	function setRootRuntimeInfo(runtime) {
-		if (!runtime) return;
-		if (runtime.$cross) {
-			for (let p in this) {
-				if (p.startsWith("$") || p.startsWith('_')) continue;
-				let ta = this[p];
-				if (ta._elem_ && ta.$cross) {
-					for (let x in runtime.$cross) {
-						if (ta._elem_.name != x) continue;
-						let t = ta.$cross;
-						let s = runtime.$cross[x];
-						for (let p in t) {
-							let ta = t[p];
-							let sa = s[p];
-							if (ta && sa)
-								ta.splice(0, ta.length, ...sa);
-							else if (ta && !sa)
-								ta.splice(0, ta.length);
-						}
-					}
+		if (!runtime || !runtime.$cross) return;
+		function ensureCrossSize(elem, cross) {
+			if (!elem._elem_ || !elem.$cross) return;
+			for (let crstp in cross) {
+				if (elem._elem_.name !== crstp) continue;
+				let t = elem.$cross;
+				let s = cross[crstp];
+				for (let p in t) {
+					let ta = t[p];
+					let sa = s[p];
+					if (ta && sa)
+						ta.splice(0, ta.length, ...sa);
+					else if (ta && !sa)
+						ta.splice(0, ta.length);
 				}
+			}
+		}
+
+		for (let p in this) {
+			if (p.startsWith("$") || p.startsWith('_')) continue;
+			let ta = this[p];
+			ensureCrossSize(ta, runtime.$cross);
+			if (ta._meta_ && ta._meta_.$items) {
+				ta = ta[ta._meta_.$items];
+				ensureCrossSize(ta, runtime.$cross);
 			}
 		}
 	}

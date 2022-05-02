@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
 
-// 20210615-7784
+// 20220416-7838
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -31,22 +31,24 @@ app.modules['std:utils'] = function () {
 		isObject, isObjectExact,
 		isDate, isString, isNumber, isBoolean,
 		isPromise,
-		toString: toString,
-		defaultValue: defaultValue,
-		notBlank: notBlank,
-		toJson: toJson,
+		toString,
+		toBoolean,
+		defaultValue,
+		notBlank,
+		toJson,
 		fromJson: JSON.parse,
 		isPrimitiveCtor: isPrimitiveCtor,
-		isDateCtor: isDateCtor,
-		isEmptyObject: isEmptyObject,
+		isDateCtor,
+		isEmptyObject,
 		defineProperty: defProperty,
 		eval: evaluate,
 		simpleEval: simpleEval,
 		format: format,
-		toNumber: toNumber,
+		toNumber,
 		parse: parse,
-		getStringId: getStringId,
-		isEqual: isEqual,
+		getStringId,
+		isEqual,
+		ensureType,
 		date: {
 			today: dateToday,
 			now: dateNow,
@@ -89,7 +91,8 @@ app.modules['std:utils'] = function () {
 		debounce: debounce,
 		model: {
 			propFromPath
-		}
+		},
+		mergeTemplate
 	};
 
 	function isFunction(value) { return typeof value === 'function'; }
@@ -149,6 +152,14 @@ app.modules['std:utils'] = function () {
 		}, 2);
 	}
 
+	function toBoolean(obj) {
+		if (!obj) return false;
+		let val = obj.toString().toLowerCase();
+		if (val === 'true' || val === '1')
+			return true;
+		return false;
+	}
+
 	function toString(obj) {
 		if (!isDefined(obj))
 			return '';
@@ -157,6 +168,21 @@ app.modules['std:utils'] = function () {
 		else if (isObject(obj))
 			return toJson(obj);
 		return '' + obj;
+	}
+
+	function ensureType(type, val) {
+		if (typeof val === type) return val;
+		if (!isDefined(val))
+			val = defaultValue(type);
+		if (type === Number)
+			return toNumber(val);
+		else if (type === String)
+			return toString(val);
+		else if (type === Boolean)
+			return toBoolean(val);
+		else if (type === Date && !isDate(val))
+			return dateParse('' + val);
+		return val;
 	}
 
 	function defaultValue(type) {
@@ -726,6 +752,19 @@ app.modules['std:utils'] = function () {
 			enumerable: true,
 			configurable: true, /* needed */
 			get: get
+		});
+	}
+
+	function mergeTemplate(src, tml) {
+		function assign(s, t) {
+			return Object.assign({}, s || {}, t || {});
+		}
+		return assign(src, {
+			properties: assign(src.properties, tml.properties),
+			validators: assign(src.validators, tml.validators),
+			events: assign(src.events, tml.events),
+			defaults: assign(src.defaults, tml.defaults),
+			commands: assign(src.commands, tml.commands)
 		});
 	}
 };

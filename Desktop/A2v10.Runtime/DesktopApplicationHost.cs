@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2020 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
 using System;
 using System.IO;
@@ -53,7 +53,7 @@ namespace A2v10.Runtime
 		public FullUserInfo UserInfo => CurrentUserInfo;
 
 		public String SmtpConfig => throw new NotImplementedException(nameof(SmtpConfig));
-		public String CustomLayout => throw new NotImplementedException(nameof(CustomLayout));
+		public String CustomLayout => String.Empty;
 
 		public String HostingPath
 		{
@@ -110,9 +110,11 @@ namespace A2v10.Runtime
 		public Int32? TenantId { get; set; } 
 		public Int64? UserId { get; set; }
 		public String UserSegment { get; set; }
+		public String UserName { get; set; }
 		public String CatalogDataSource => "Catalog";
 		public String TenantDataSource => null;
 		public String CustomSecuritySchema => null;
+		public String ActualSecuritySchema => CustomSecuritySchema ?? "a2security";
 
 		public String AppVersion => AppInfo.MainAssembly.Version;
 		public String AppBuild => AppInfo.MainAssembly.Build;

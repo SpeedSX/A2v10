@@ -90,6 +90,7 @@ const vm = new DataModelController({
 	props: {
 		inDialog: {type: Boolean, default: $(IsDialog)},
         isIndex: {type: Boolean, default: $(IsIndex)},
+		isSkipDataStack: {type: Boolean, default: $(IsSkipDataStack)},
 		pageTitle: {type: String}
 	},
 	data: currentModule().dataModel,
@@ -116,8 +117,8 @@ vm.__doInit__('$(BaseUrl)');
 
 	public class VueDataScripter : IDataScripter
 	{
-		IApplicationHost _host;
-		ILocalizer _localizer;
+		private readonly IApplicationHost _host;
+		private readonly ILocalizer _localizer;
 		public VueDataScripter(IApplicationHost host, ILocalizer localizer)
 		{
 			_host = host;
@@ -267,8 +268,9 @@ function modelData(template, data) {
 				sb.Append($"{c.Key}: [");
 				if (c.Value != null)
 					sb.Append(String.Join(",", c.Value.Select(s =>  $"'{s}'")));
-				sb.Append("]");
+				sb.Append("],");
 			}
+			sb.RemoveTailComma();
 			sb.AppendLine("}");
 			return sb.ToString();
 		}
@@ -543,6 +545,7 @@ function modelData(template, data) {
 			footer.Replace("$(BaseUrl)", msi.BaseUrl);
 			footer.Replace("$(IsDialog)", msi.IsDialog.ToString().ToLowerInvariant());
             footer.Replace("$(IsIndex)", msi.IsIndex.ToString().ToLowerInvariant());
+			footer.Replace("$(IsSkipDataStack)", msi.IsSkipDataStack.ToString().ToLowerInvariant());
 			output.Append(footer);
 			result.Script = output.ToString();
 

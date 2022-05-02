@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
 using System;
 using System.Configuration;
@@ -52,6 +52,7 @@ namespace BackgroundProcessor
 		public String HelpUrl => throw new NotImplementedException(nameof(HelpUrl));
 		public String HostingPath => throw new NotImplementedException(nameof(HostingPath));
 		public String CustomSecuritySchema => ConfigurationManager.AppSettings[AppHostKeys.customSecuritySchema];
+		public String ActualSecuritySchema => CustomSecuritySchema ?? "a2security";
 
 		public Boolean IsDebugConfiguration
 		{
@@ -79,6 +80,7 @@ namespace BackgroundProcessor
 		public Int32? TenantId { get => throw new NotSupportedException(); set => throw new InvalidOperationException(nameof(TenantId)); }
 		public Int64? UserId { get => throw new NotSupportedException(nameof(UserId)); set => throw new InvalidOperationException(nameof(UserId)); }
 		public String UserSegment { get => throw new NotSupportedException(nameof(UserId)); set => throw new InvalidOperationException(nameof(UserId)); }
+		public String UserName { get; set; }
 		public String CatalogDataSource => throw new NotSupportedException(nameof(CatalogDataSource));
 		public String TenantDataSource => throw new NotSupportedException(nameof(TenantDataSource));
 		public String AppVersion => throw new NotSupportedException(nameof(AppVersion));

@@ -51,12 +51,15 @@ namespace A2v10.Infrastructure
 		Boolean IsMultiTenant { get; }
 		Boolean IsMultiCompany { get; }
 		String CustomSecuritySchema { get; }
+		String ActualSecuritySchema { get; }
+
 		Boolean IsUsePeriodAndCompanies { get; }
 		String CustomUserMenu { get; }
 
 		Int32? TenantId { get; set; }
 		Int64? UserId { get; set; }
 		String UserSegment { get; set; }
+		String UserName { get; set; }
 
 		IApplicationReader ApplicationReader { get; }
 

@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
 
 namespace A2v10.Xaml
 {
@@ -248,6 +248,7 @@ namespace A2v10.Xaml
 		Calendar,
 		Call,
 		Camera,
+		Cart,
 		ChartArea,
 		ChartBar,
 		ChartColumn,
@@ -342,6 +343,7 @@ namespace A2v10.Xaml
         Flame,
 		Folder,
 		FolderOutline,
+		FoldersOutline,
 		FolderQuery,
 		Gear,
 		GearOutline,
@@ -411,6 +413,7 @@ namespace A2v10.Xaml
 		SendOutline,
 		Server,
 		Share,
+		Shopping,
 		Smile,
 		SmileSad,
 		Square,
@@ -435,6 +438,7 @@ namespace A2v10.Xaml
 		Trash,
 		TriangleLeft,
 		TriangleRight,
+		Truck,
 		Unlock,
 		UnlockOutline,
 		Unpin,

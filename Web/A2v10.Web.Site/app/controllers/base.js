@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
-/*20220110-7819*/
+/*20220420-7840*/
 // controllers/base.js
 
 (function () {
@@ -44,6 +44,12 @@
 			}
 		}
 		return ra.length ? ra : null;
+	}
+
+	function treeNormalPath(path) {
+		if (!path) return;
+		path = '' + path;
+		return [... new Set(path.split('.'))].join('.');
 	}
 
 	function isPermissionsDisabled(opts, arg) {
@@ -171,6 +177,16 @@
 					url = urltools.combine('_dialog', url);
 				this.$data.__baseUrl__ = url;
 				eventBus.$emit('modalSetBase', url);
+			},
+			$emitSaveEvent() {
+				if (this.__saveEvent__)
+					this.$caller.$data.$emit(this.__saveEvent__, this.$data);
+			},
+			$emitCaller(event, ...arr) {
+				if (this.$caller)
+					this.$caller.$data.$emit(event, ...arr);
+				else
+					log.error('There is no caller here');
 			},
 			$save(opts) {
 				if (this.$data.$readOnly)
@@ -971,6 +987,9 @@
 				eventBus.$emit('setFilter', { source: obj, prop: prop, value: val });
 			},
 
+			$clearFilter(obj) {
+				eventBus.$emit('clearFilter', {source: obj});
+			},
 			$modalSelect(array, opts) {
 				if (!('$selected' in array)) {
 					console.error('Invalid array for $modalSelect');
@@ -1176,6 +1195,8 @@
 							if (data.$ModelInfo)
 								modelInfo.reconcile(data.$ModelInfo[propName]);
 							arr._root_._setModelInfo_(arr, data);
+							let eventName = treeNormalPath(arr._path_) + '.load';
+							self.$data.$emit(eventName, arr);
 						}
 						resolve(arr);
 					}).catch(function (msg) {
@@ -1304,10 +1325,13 @@
 					$navigate: this.$navigate,
 					$defer: platform.defer,
 					$setFilter: this.$setFilter,
+					$clearFilter: this.$clearFilter,
 					$expand: this.$expand,
 					$focus: this.$focus,
 					$report: this.$report,
-					$upload: this.$upload
+					$upload: this.$upload,
+					$emitCaller: this.$emitCaller,
+					$emitSaveEvent: this.$emitSaveEvent
 				};
 				Object.defineProperty(ctrl, "$isDirty", {
 					enumerable: true,
@@ -1377,7 +1401,8 @@
 		},
 		created() {
 			let out = { caller: null };
-			eventBus.$emit('registerData', this, out);
+			if (!this.isSkipDataStack)
+				eventBus.$emit('registerData', this, out);
 			this.$caller = out.caller;
 			this.__destroyed__ = false;
 
@@ -1400,7 +1425,8 @@
 		destroyed() {
 			//console.dir('base.js has been destroyed');
 			this.$caller = null;
-			eventBus.$emit('registerData', null);
+			if (!this.isSkipDataStack)
+				eventBus.$emit('registerData', null);
 			eventBus.$off('beginRequest', this.__beginRequest);
 			eventBus.$off('endRequest', this.__endRequest);
 			eventBus.$off('queryChange', this.__queryChange);
