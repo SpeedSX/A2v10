@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using A2v10.Web.Mvc;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -13,6 +14,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyCopyright("Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
+[assembly: EntryAssembly]
 
 // Setting ComVisible to false makes the types in this assembly not visible
 // to COM components.  If you need to access a type in this assembly from
@@ -31,5 +33,5 @@ using System.Runtime.InteropServices;
 //
 // You can specify all the values or you can default the Revision and Build Numbers
 // by using the '*' as shown below:
-[assembly: AssemblyVersion("10.0.7843.0")]
-[assembly: AssemblyFileVersion("10.0.7843.0")]
+[assembly: AssemblyVersion("10.0.7890.0")]
+[assembly: AssemblyFileVersion("10.0.7890.0")]

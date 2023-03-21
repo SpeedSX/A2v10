@@ -27,7 +27,7 @@ body {
 	height: 100%;
 	width: 100%;
 	padding: 0;
-	background-color: white;
+	background-color: @background-color;
 	.noselect();
 }
 
@@ -79,9 +79,10 @@ header, .header {
 		}
 
 		.app-logo {
-			padding-right:12px;
+			padding-right: 12px;
+
 			> img {
-				display:block;
+				display: block;
 			}
 		}
 
@@ -181,6 +182,30 @@ header, .header {
 			background-color: darken(@success-base-color, 5%);
 		}
 	}
+
+	.include.nav-pane {
+		width: auto;
+
+		.btn {
+			padding: 0 .5rem;
+			position: relative;
+		}
+
+		.partial-block {
+			display: flex;
+			align-items: stretch;
+			height: 100%;
+
+			.btn-icon {
+				width: @header-height;
+			}
+
+			.control-group {
+				margin-bottom: 0;
+				align-self: center;
+			}
+		}
+	}
 }
 
 .content-view {
@@ -266,7 +291,7 @@ footer, .footer {
 	height: @footer-height;
 	background-color: @footer-bg-color;
 	border-top: 1px solid @light-brd-color;
-	padding: 0 2px 0 8px;
+	padding: 0 0 0 8px;
 	font-size: @font-size-small;
 	text-transform: lowercase;
 
@@ -277,6 +302,7 @@ footer, .footer {
 
 	.debug-btn {
 		display: inline;
+		height:100%;
 	}
 
 	.menu {
@@ -286,7 +312,7 @@ footer, .footer {
 	}
 
 	.version-info {
-		margin-right: 6px;
+		margin-right: 1rem;
 		white-space: nowrap;
 	}
 
@@ -298,6 +324,7 @@ footer, .footer {
 		color: white;
 		text-transform: lowercase;
 		vertical-align: baseline;
+		border-radius:0;
 
 		&:focus {
 			outline-style: none;
@@ -546,29 +573,11 @@ pre.a2-code {
 }
 
 
-.a2-changelog {
-	padding: 1rem;
-	margin-top: -2rem;
-
-	ol {
-		margin-top: 4px;
-	}
-
-	h4 {
-		font-size: 1em;
-		margin: 0.5rem 0;
-		color: #777;
-		font-weight: bold;
-		font-family: inherit;
-		margin-top: 2rem;
-	}
-}
-
 .tooltip {
-	position:absolute;
-	padding:6px;
-	background-color:white;
-	border:1px solid #ccc;
+	position: absolute;
+	padding: 6px;
+	background-color: @background-color;
+	border: 1px solid @default-brd-color;
 }
 
 .title-notify {

@@ -12,7 +12,12 @@
 			<Button Icon="Reload" Command="{BindCmd Reload}" Tip="Обновить данные">@[Reload]</Button>
 			<Separator/>
 			<Button Icon="Gear" Content="Провести" Command="{BindCmd Execute, CommandName='apply', Argument={Bind Document}}" If="{Bind !Document.Done}"/>
-			<Button Icon="UnlockOutline" Content="Отменить проведение" Command="{BindCmd Execute, CommandName='unApply', Argument={Bind Document}}" If="{Bind Document.Done}"/>
+			<Button Icon="GearOutline" Content="Провести (2)" 
+					Command="{BindCmd Invoke, Url='/document/apply', Argument={Bind Document}, 
+						SaveRequired=True, ValidRequired=True, Confirm='Are you sure?', RequeryAfter=True}" 
+				If="{Bind !Document.Done}"/>
+			<Button Icon="UnlockOutline" Content="Отменить проведение (2)"
+					Command="{BindCmd Invoke, Url='/document/unapply', Argument={Bind Document}, Confirm='Are you sure?', RequeryAfter=True}" If="{Bind Document.Done}"/>
 			<Button Icon="Print" Content="@[Print]" Command="{BindCmd Report, Report='Invoice', Argument={Bind Document}, SaveRequired=True}"/>
 			<Button Icon="Download" Content="@[Export]" Command="{BindCmd Report, Export=True, Report='Invoice', Argument={Bind Document}, SaveRequired=True}"/>
 			<ToolbarAligner />
@@ -21,9 +26,10 @@
 		</Toolbar>
 	</Page.Toolbar>
 	<Page.Taskpad>
-		<Taskpad Width="290" Background="WhiteSmoke">
+		<Taskpad Width="290" Background="LightYellow" Position="Right">
+			<Flex Gap="6px" Orientation="Vertical" Padding="1rem">
 			<ContentControl Content="{Source Path='../../Document/Info'}"/>
-			<Panel Header="Отгрузки" Padding="6" Icon="Link"
+			<Panel Header="Отгрузки" Padding="6" Icon="Link" DropShadow="Shadow4"
 					Style="Yellow" Collapsible="True" If="{Bind Document.Done}">
 				<Table If="{Bind !Document.$canShipment}" Compact="True" Width="100%" 
 					GridLines="Horizontal"
@@ -49,12 +55,13 @@
 					Command="{BindCmd Execute, CommandName='createPayment', Argument={Bind Document}, Confirm='Создать документ оплаты?'}" 
 					Padding="6" Block="True"/>
 			</Panel>
-			<Panel Header="TestInclude">
+			<Panel Header="TestInclude" DropShadow="Shadow3">
 				<Grid Columns="1*,1*">
 					<Include Source="/sales/invoice/includeinfo" Grid.Col="2"
 							 Argument="{Bind Document.Agent.Id}" CssClass="italic"/>
 				</Grid>
 			</Panel>
+			</Flex>
 		</Taskpad>
 	</Page.Taskpad>
 	<Grid Columns="12rem, 12rem, 150, 1*">
@@ -87,11 +94,12 @@
 		</myControls:TextBoxWithMask>
 		-->
 		<!--
+		Delegate="fetchCustomers"
 		-->
 		<Selector Grid.Row="3" Grid.ColSpan="3" Placeholder="Выберите покупателя"
 			Label="@[Purchaser]" Value="{Bind Document.Agent}"  TextValue="{Bind Document.Memo}"
 				CreateNewCommand="{BindCmd Execute, CommandName='createNewCustomer'}"
-				Delegate="fetchCustomers" DisplayProperty="Name" ShowCaret="True" ShowClear="True">
+				Fetch="/sales/invoice/fetchCustomer" DisplayProperty="Name" ShowCaret="True" ShowClear="True">
 			<Selector.Link>
 				<Hyperlink Content="Зберегти цей рахунок"/>
 			</Selector.Link>
@@ -115,6 +123,13 @@
 				<Tab Header="Test Tab with scroll">
 					<Toolbar Style="Transparent">
 						<Button Icon="Add" Content="Добавить строку" Command="{BindCmd Append, Argument={Bind Document.Rows}}"/>
+						<Button Content="Menu">
+							<Button.DropDown>
+								<DropDownMenu>
+									<MenuItem Content="Menu" />
+								</DropDownMenu>
+							</Button.DropDown>
+						</Button>
 					</Toolbar>
 					<Table ItemsSource="{Bind Document.Rows}"
               Width="100%" GridLines="Both" Background="Paper" Compact="True"

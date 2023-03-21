@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
-// 20220414-7835
+// 20221127-7908
 // components/collectionview.js
 
 /*
@@ -161,7 +161,7 @@ TODO:
 				return arr;
 			},
 			sourceCount() {
-				return this.ItemsSource.length;
+				return this.filteredCount;
 			},
 			thisPager() {
 				return this;
@@ -454,6 +454,9 @@ TODO:
 		methods: {
 			commit(query) {
 				//console.dir(this.$root.$store);
+				query.__baseUrl__ = '';
+				if (this.$root.$data)
+					query.__baseUrl__ = this.$root.$data.__baseUrl__;
 				this.$store.commit('setquery', query);
 			},
 			sortDir(order) {

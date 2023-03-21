@@ -47,9 +47,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Admin\A2v10.Web.Admin.nuspec">
-      <SubType>Designer</SubType>
-    </Content>
+    <None Include="A2v10.Web.Runtime.Interfaces.nuspec" />
     <None Include="Admin\bpmn\catalog\model.json" />
     <None Include="Admin\Identity\Api\model.json" />
     <None Include="Admin\Identity\Group\model.json" />
@@ -98,8 +96,10 @@
     </None>
     <None Include="Develop\agent\model.json" />
     <None Include="Develop\bpmn\catalog\model.json" />
+    <None Include="Develop\bpmn\instance\model.json" />
     <None Include="Develop\common\Entity\model.json" />
     <None Include="Develop\dashboard\model.json" />
+    <None Include="Develop\document\model.json" />
     <None Include="Develop\entity\model.json" />
     <None Include="Develop\links.json" />
     <None Include="Develop\catalog\Buildings\model.json" />
@@ -164,6 +164,11 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </None>
+    <Page Include="Develop\catalog\Suppliers\index.view.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Content Include="Develop\dashboard\server.common.js" />
     <Content Include="Develop\dashboard\server4.module.js" />
     <Content Include="Develop\dashboard\server3.module.js" />
     <Content Include="Develop\purchase\testguids\edit.template.js" />
@@ -197,10 +202,10 @@
     <Content Include="Develop\entity\editGoods.template.js" />
     <TypeScriptCompile Include="Develop\purchase\Goods\index.d.ts" />
     <None Include="Develop\purchase\testguids\model.json" />
-    <None Include="Develop\purchase\Supplier\index.view.html_">
+    <Content Include="Develop\purchase\Supplier\index.view.html">
       <Generator>XamlIntelliSenseFileGenerator</Generator>
       <SubType>Designer</SubType>
-    </None>
+    </Content>
     <None Include="Develop\reports\model.json" />
     <None Include="Develop\sales\assets\model.json" />
     <Content Include="Develop\sales\catalog\index.template.js" />
@@ -366,6 +371,10 @@
     <ProjectReference Include="..\..\A2v10.Data\A2v10.Data.Interfaces\A2v10.Data.Interfaces.csproj">
       <Project>{1c5a0097-29a8-4157-80c0-b865ceafccce}</Project>
       <Name>A2v10.Data.Interfaces</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\A2v10.Pdf.Report\A2v10.Xaml.Report\A2v10.Xaml.Report.csproj">
+      <Project>{982b4b91-2299-4c8d-bd6a-50a95f663dfd}</Project>
+      <Name>A2v10.Xaml.Report</Name>
     </ProjectReference>
     <ProjectReference Include="..\Shared\A2v10.Infrastructure\A2v10.Infrastructure.csproj">
       <Project>{8ab56abe-3894-40ee-a5b7-36b57b70d1be}</Project>
@@ -657,8 +666,7 @@
     </None>
     <None Include="Bootstrap\sales\waybill\waybill.view.xaml">
     </None>
-    <Content Include="Develop\purchase\Supplier\index.view.xaml">
-    </Content>
+    <None Include="Develop\purchase\Supplier\index.view.xaml_" />
     <None Include="Develop\purchase\WaybillIn\index.view.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -857,6 +865,18 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Develop\sales\invoice\includeinfo.partial.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Develop\sales\invoice\invoice.report.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Develop\sales\waybill\invoice.report.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </None>

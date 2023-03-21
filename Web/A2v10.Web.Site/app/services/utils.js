@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20220416-7838
+// 20230224-7921
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -24,6 +24,7 @@ app.modules['std:utils'] = function () {
 
 	let numFormatCache = {};
 
+	const zeroDate = new Date(Date.UTC(0, 0, 1, 0, 0, 0, 0));
 
 	return {
 		isArray: Array.isArray,
@@ -49,6 +50,8 @@ app.modules['std:utils'] = function () {
 		getStringId,
 		isEqual,
 		ensureType,
+		clearObject,
+		isPlainObjectEmpty,
 		date: {
 			today: dateToday,
 			now: dateNow,
@@ -62,6 +65,7 @@ app.modules['std:utils'] = function () {
 			add: dateAdd,
 			diff: dateDiff,
 			create: dateCreate,
+			createTime: dateCreateTime,
 			compare: dateCompare,
 			endOfMonth: endOfMonth,
 			minDate: dateCreate(1901, 1, 1),
@@ -168,6 +172,35 @@ app.modules['std:utils'] = function () {
 		else if (isObject(obj))
 			return toJson(obj);
 		return '' + obj;
+	}
+
+	function isPlainObjectEmpty(obj) {
+		if (!obj) return true;
+		return !Object.keys(obj).some(key => !!obj[key]);
+	}
+
+	function clearObject(obj) {
+		for (let key of Object.keys(obj)) {
+			let val = obj[key];
+			if (!val)
+				continue;
+			switch (typeof (val)) {
+				case 'number':
+					obj[key] = 0;
+					break;
+				case 'string':
+					obj[key] = '';
+					break;
+				case 'object':
+					clearObject(obj[key]);
+					break;
+				case 'boolean':
+					obj[key] = false;
+					break;
+				default:
+					console.error(`utils.clearObject. Unknown property type ${typeof (val)}`);
+			}
+		}
 	}
 
 	function ensureType(type, val) {
@@ -402,8 +435,7 @@ app.modules['std:utils'] = function () {
 	}
 
 	function dateZero() {
-		let td = new Date(Date.UTC(0, 0, 1, 0, 0, 0, 0));
-		return td;
+		return zeroDate;
 	}
 
 	function dateTryParse(str) {
@@ -521,6 +553,11 @@ app.modules['std:utils'] = function () {
 
 	function dateCreate(year, month, day) {
 		let dt = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+		return dt;
+	}
+
+	function dateCreateTime(year, month, day, hour, min, sec) {
+		let dt = new Date(Date.UTC(year, month - 1, day, hour || 0, min || 0, sec || 0, 0));
 		return dt;
 	}
 
@@ -677,6 +714,22 @@ app.modules['std:utils'] = function () {
 					break;
 				case 'barcode':
 					value = toLatin(value);
+					break;
+				case 'fract3':
+					value = currencyRound(toNumber(value), 3);
+					break;
+				case 'fract2':
+					value = currencyRound(toNumber(value), 2);
+					break;
+				case 'eval':
+					if (value.startsWith('=')) {
+						try {
+							value = eval(value.replace(/[^0-9\s\+\-\*\/\,\.\,]/g, '').replaceAll(',', '.'));
+						} catch (err) {
+							value = '';
+						}
+					}
+					break;
 			}
 		}
 		return value;
@@ -764,7 +817,8 @@ app.modules['std:utils'] = function () {
 			validators: assign(src.validators, tml.validators),
 			events: assign(src.events, tml.events),
 			defaults: assign(src.defaults, tml.defaults),
-			commands: assign(src.commands, tml.commands)
+			commands: assign(src.commands, tml.commands),
+			delegates: assign(src.delegates, tml.delegates)
 		});
 	}
 };

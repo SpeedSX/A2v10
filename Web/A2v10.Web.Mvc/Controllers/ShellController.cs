@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
 using System;
 using System.Web.Mvc;
@@ -25,7 +25,7 @@ using A2v10.Request.Models;
 using System.Net.Http.Headers;
 using System.Linq;
 using A2v10.Web.Base;
-using A2v10.Web.Config;
+using A2v10.Web.Mvc.Interfaces;
 
 namespace A2v10.Web.Mvc.Controllers
 {
@@ -33,19 +33,22 @@ namespace A2v10.Web.Mvc.Controllers
 	[AuthorizeFilter]
 	[ExecutingFilter]
 	[CheckMobileFilter]
-	public class ShellController : Controller, IControllerProfiler, IControllerTenant, IControllerLocale
+	public class ShellController : Controller, IControllerProfiler, IControllerTenant, IControllerLocale, IControllerSession
 	{
-		A2v10.Request.BaseController _baseController = new BaseController();
-
+		private readonly A2v10.Request.BaseController _baseController = new();
+		private readonly IHooksProvider _hooksProvider;
 		public Int64 UserId => User.Identity.GetUserId<Int64>();
 		public Int32 TenantId => User.Identity.GetUserTenantId();
 		public String UserSegment => User.Identity.GetUserSegment();
 		public Int64 CompanyId => _baseController.UserStateManager.UserCompanyId(TenantId, UserId);
 
+		private const String DEMOUSER_COOKIE = "_demo_user_"; // as AccountController!
+
 		public String CatalogDataSource => _baseController.Host.CatalogDataSource;
 
 		public ShellController()
 		{
+			_hooksProvider = ServiceLocator.Current.GetService<IHooksProvider>();
 		}
 
 		#region IControllerProfiler
@@ -114,9 +117,15 @@ namespace A2v10.Web.Mvc.Controllers
 					_baseController.Host.SetAdmin(true);
 				await Shell(pathInfo, adminShell);
 			}
+			else if (pathInfo.StartsWith("_batch/", StringComparison.OrdinalIgnoreCase))
+			{
+				await DoBatch(pathInfo.Substring(7));
+			}
 			else if (pathInfo.StartsWith("_page/", StringComparison.OrdinalIgnoreCase))
 			{
-				await Render(pathInfo.Substring(6), RequestUrlKind.Page);
+				pathInfo = pathInfo.Substring(6);
+				await LogDemoUser(pathInfo);
+				await Render(pathInfo, RequestUrlKind.Page);
 			}
 			else if (pathInfo.StartsWith("_dialog/", StringComparison.OrdinalIgnoreCase))
 			{
@@ -187,6 +196,16 @@ namespace A2v10.Web.Mvc.Controllers
 			return String.Empty;
 		}
 
+
+		public String GetNavPane()
+		{
+			var appReader = _baseController.Host.ApplicationReader;
+			String path = appReader.MakeFullPath("_navpane", "model.json");
+			if (appReader.FileExists(path))
+				return "<include class=nav-pane src=\"/_page/_navpane/index/0\" :hide-indicator=\"true\"></include>";
+			return String.Empty;
+		}
+
 		public String GetCompanyButton()
 		{
 			if (!_baseController.Host.IsMultiCompany)
@@ -204,11 +223,13 @@ namespace A2v10.Web.Mvc.Controllers
 					{ "$(RootUrl)", RootUrl },
 					{ "$(PersonName)", GetUserPersonName() },
 					{ "$(ClientId)", GetUserClientId() },
+					{ "$(NavPane)", GetNavPane() },
 					{ "$(CompanyButton)", GetCompanyButton() },
 					{ "$(Locale)", _baseController.CurrentLang },
 					{ "$(Minify)", _baseController.IsDebugConfiguration ? String.Empty : "min." }
 				};
-				_baseController.Layout(Response.Output, prms, Request.Url.LocalPath);
+				var siteHost = Request.Headers["Host"];
+				_baseController.Layout(Response.Output, prms, Request.Url.LocalPath, siteHost);
 			}
 			catch (Exception ex)
 			{
@@ -216,6 +237,29 @@ namespace A2v10.Web.Mvc.Controllers
 			}
 		}
 
+
+		async Task DoBatch(String pathInfo)
+		{
+			if (IsNotAjax())
+				return;
+			List<String> list = null;
+			using (var tr = new StreamReader(Request.InputStream))
+			{
+				String json = tr.ReadToEnd();
+				list = JsonConvert.DeserializeObject<List<String>>(json);
+			}
+
+			if (list == null)
+				return;
+			foreach (var path in list)
+			{
+				ExpandoObject loadPrms = new();
+				SetSqlQueryParams(loadPrms);
+				var url = path.Substring(6); // remove _page
+				using StringWriter tw = new();
+				await _baseController.RenderElementKind(RequestUrlKind.Page, url, loadPrms, Response.Output);
+			}
+		}
 
 		async Task Render(String pathInfo, RequestUrlKind kind)
 		{
@@ -230,7 +274,7 @@ namespace A2v10.Web.Mvc.Controllers
 			try
 			{
 				Response.ContentType = "text/html";
-				ExpandoObject loadPrms = new ExpandoObject();
+				ExpandoObject loadPrms = new();
 				// query string
 				loadPrms.Append(_baseController.CheckPeriod(Request.QueryString), toPascalCase: true);
 				if (pathInfo.StartsWith("app/"))
@@ -278,11 +322,9 @@ namespace A2v10.Web.Mvc.Controllers
 			Response.ContentType = "application/json";
 			try
 			{
-				using (var tr = new StreamReader(Request.InputStream))
-				{
-					String json = tr.ReadToEnd();
-					await _baseController.Data(command, SetSqlQueryParams, json, Response);
-				}
+				using var tr = new StreamReader(Request.InputStream);
+				String json = tr.ReadToEnd();
+				await _baseController.Data(command, SetSqlQueryParams, json, Response);
 			}
 			catch (Exception ex)
 			{
@@ -300,11 +342,9 @@ namespace A2v10.Web.Mvc.Controllers
 			Response.ContentType = "application/json";
 			try
 			{
-				using (var tr = new StreamReader(Request.InputStream))
-				{
-					String json = tr.ReadToEnd();
-					await _baseController.ApplicationCommand(command, SetSqlQueryParams, json, Response);
-				}
+				using var tr = new StreamReader(Request.InputStream);
+				String json = tr.ReadToEnd();
+				await _baseController.ApplicationCommand(command, SetSqlQueryParams, json, Response);
 			}
 			catch (Exception ex)
 			{
@@ -397,7 +437,7 @@ namespace A2v10.Web.Mvc.Controllers
 			// HTTP GET
 			try
 			{
-				ExpandoObject loadPrms = new ExpandoObject();
+				ExpandoObject loadPrms = new();
 				SetSqlQueryParams(loadPrms);
 				await _baseController.RenderEUSignIFrame(Response.Output, path, loadPrms);
 			}
@@ -412,7 +452,7 @@ namespace A2v10.Web.Mvc.Controllers
 			// HTTP GET
 			try
 			{
-				ExpandoObject loadPrms = new ExpandoObject();
+				ExpandoObject loadPrms = new();
 				loadPrms.Append(_baseController.CheckPeriod(Request.QueryString), toPascalCase: true);
 				SetSqlQueryParams(loadPrms);
 				await _baseController.Export(path, TenantId, UserId, loadPrms, Response);
@@ -441,10 +481,8 @@ namespace A2v10.Web.Mvc.Controllers
 					FileNameStar = Path.GetFileName(fullPath)
 				};
 				Response.Headers.Add("Content-Disposition", cdh.ToString());
-				using (var stream = appReader.FileStreamFullPathRO(fullPath))
-				{
-					stream.CopyTo(Response.OutputStream);
-				}
+				using var stream = appReader.FileStreamFullPathRO(fullPath);
+				stream.CopyTo(Response.OutputStream);
 			}
 			catch (Exception ex)
 			{
@@ -466,10 +504,8 @@ namespace A2v10.Web.Mvc.Controllers
 				if (!appReader.FileExists(fullPath))
 					throw new FileNotFoundException($"File not found '{path}'");
 				Response.ContentType = "text/html";
-				using (var stream = appReader.FileStreamFullPathRO(fullPath))
-				{
-					stream.CopyTo(Response.OutputStream);
-				}
+				using var stream = appReader.FileStreamFullPathRO(fullPath);
+				stream.CopyTo(Response.OutputStream);
 			}
 			catch (Exception ex)
 			{
@@ -520,7 +556,7 @@ namespace A2v10.Web.Mvc.Controllers
 					try
 					{
 						var files = Request.Files;
-						await _baseController.SaveFiles(url, files, SetQueryStringAndSqlQueryParams, Response.Output);
+						await _baseController.SaveFiles(url, files, Request.Form.ToExpando(),  SetQueryStringAndSqlQueryParams, Response.Output);
 					}
 					catch (Exception ex)
 					{
@@ -531,12 +567,10 @@ namespace A2v10.Web.Mvc.Controllers
 					try
 					{
 						var token = Request.QueryString["token"];
-						if (token == null)
-							throw new InvalidOperationException("There is no access token for image");
-						var ai = await _baseController.LoadFileGet(url, SetQueryStringAndSqlQueryParams);
+						var ai = await _baseController.LoadFileGet(url, SetQueryStringAndSqlQueryParams, token);
 						if (ai == null)
 							throw new InvalidOperationException($"Not found. Url='{url}'");
-						if (!_baseController.IsTokenValid(Response, ai.Token, token))
+						if (ai.CheckToken && !_baseController.IsTokenValid(Response, ai.Token, token))
 							return;
 						Response.ContentType = ai.Mime;
 						if (Request.QueryString["export"] != null)
@@ -606,16 +640,12 @@ namespace A2v10.Web.Mvc.Controllers
 			Response.ContentType = "image/png";
 			if (ex.InnerException != null)
 				ex = ex.InnerException;
-			using (var b = new Bitmap(380, 30))
-			{
-				using (var g = Graphics.FromImage(b))
-				{
-					g.FillRectangle(Brushes.LavenderBlush, new Rectangle(0, 0, 380, 30));
-					g.DrawString(ex.Message, SystemFonts.SmallCaptionFont, Brushes.DarkRed, 5, 5, StringFormat.GenericTypographic);
-					g.Save();
-					b.Save(Response.OutputStream, ImageFormat.Png);
-				}
-			}
+			using var b = new Bitmap(380, 30);
+			using var g = Graphics.FromImage(b);
+			g.FillRectangle(Brushes.LavenderBlush, new Rectangle(0, 0, 380, 30));
+			g.DrawString(ex.Message, SystemFonts.SmallCaptionFont, Brushes.DarkRed, 5, 5, StringFormat.GenericTypographic);
+			g.Save();
+			b.Save(Response.OutputStream, ImageFormat.Png);
 		}
 
 		async Task SaveImage(String url)
@@ -760,6 +790,26 @@ namespace A2v10.Web.Mvc.Controllers
 			Response.Write(content);
 		}
 
+		async Task LogDemoUser(String pathInfo)
+		{
+			var c = Request.Cookies[DEMOUSER_COOKIE];
+			if (c == null)
+				return;
+			if (c.Value == null)
+				return;
+			var x = pathInfo.Split('/');
+			if (x.Length < 2)
+				return;
+			var url = String.Join("/", x.Take(2));
+			await _baseController.DbContext.ExecuteExpandoAsync(_baseController.Host.CatalogDataSource,
+				"a2security.[LogDemoUser]", new ExpandoObject()
+				{
+					{ "Id", c.Value},
+					{ "Url", url }
+				});
+		}
+
+
 		#region IControllerLocale
 		public void SetLocale()
 		{
@@ -768,5 +818,22 @@ namespace A2v10.Web.Mvc.Controllers
 		}
 		#endregion
 
+
+		#region IControllerSession
+		public Boolean IsSessionValid()
+		{
+			var hooks = _hooksProvider.SessionHooks;
+			if (hooks == null)
+				return true;
+			if (!hooks.IsSessionValid(Request, User.Identity.GetUserId<Int64>()))
+			{
+				HttpContext.Session.Abandon();
+				HttpContext.GetOwinContext().Authentication.SignOut(DefaultAuthenticationTypes.ApplicationCookie);
+				Response.Redirect("/account/login");
+				return false;
+			}
+			return true;
+		}
+		#endregion
 	}
 }

@@ -175,9 +175,9 @@ app.modules['std:locale'] = function () {
 
 })();
 
-// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20220416-7838
+// 20230224-7921
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -201,6 +201,7 @@ app.modules['std:utils'] = function () {
 
 	let numFormatCache = {};
 
+	const zeroDate = new Date(Date.UTC(0, 0, 1, 0, 0, 0, 0));
 
 	return {
 		isArray: Array.isArray,
@@ -226,6 +227,8 @@ app.modules['std:utils'] = function () {
 		getStringId,
 		isEqual,
 		ensureType,
+		clearObject,
+		isPlainObjectEmpty,
 		date: {
 			today: dateToday,
 			now: dateNow,
@@ -239,6 +242,7 @@ app.modules['std:utils'] = function () {
 			add: dateAdd,
 			diff: dateDiff,
 			create: dateCreate,
+			createTime: dateCreateTime,
 			compare: dateCompare,
 			endOfMonth: endOfMonth,
 			minDate: dateCreate(1901, 1, 1),
@@ -345,6 +349,35 @@ app.modules['std:utils'] = function () {
 		else if (isObject(obj))
 			return toJson(obj);
 		return '' + obj;
+	}
+
+	function isPlainObjectEmpty(obj) {
+		if (!obj) return true;
+		return !Object.keys(obj).some(key => !!obj[key]);
+	}
+
+	function clearObject(obj) {
+		for (let key of Object.keys(obj)) {
+			let val = obj[key];
+			if (!val)
+				continue;
+			switch (typeof (val)) {
+				case 'number':
+					obj[key] = 0;
+					break;
+				case 'string':
+					obj[key] = '';
+					break;
+				case 'object':
+					clearObject(obj[key]);
+					break;
+				case 'boolean':
+					obj[key] = false;
+					break;
+				default:
+					console.error(`utils.clearObject. Unknown property type ${typeof (val)}`);
+			}
+		}
 	}
 
 	function ensureType(type, val) {
@@ -579,8 +612,7 @@ app.modules['std:utils'] = function () {
 	}
 
 	function dateZero() {
-		let td = new Date(Date.UTC(0, 0, 1, 0, 0, 0, 0));
-		return td;
+		return zeroDate;
 	}
 
 	function dateTryParse(str) {
@@ -698,6 +730,11 @@ app.modules['std:utils'] = function () {
 
 	function dateCreate(year, month, day) {
 		let dt = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+		return dt;
+	}
+
+	function dateCreateTime(year, month, day, hour, min, sec) {
+		let dt = new Date(Date.UTC(year, month - 1, day, hour || 0, min || 0, sec || 0, 0));
 		return dt;
 	}
 
@@ -854,6 +891,22 @@ app.modules['std:utils'] = function () {
 					break;
 				case 'barcode':
 					value = toLatin(value);
+					break;
+				case 'fract3':
+					value = currencyRound(toNumber(value), 3);
+					break;
+				case 'fract2':
+					value = currencyRound(toNumber(value), 2);
+					break;
+				case 'eval':
+					if (value.startsWith('=')) {
+						try {
+							value = eval(value.replace(/[^0-9\s\+\-\*\/\,\.\,]/g, '').replaceAll(',', '.'));
+						} catch (err) {
+							value = '';
+						}
+					}
+					break;
 			}
 		}
 		return value;
@@ -941,7 +994,8 @@ app.modules['std:utils'] = function () {
 			validators: assign(src.validators, tml.validators),
 			events: assign(src.events, tml.events),
 			defaults: assign(src.defaults, tml.defaults),
-			commands: assign(src.commands, tml.commands)
+			commands: assign(src.commands, tml.commands),
+			delegates: assign(src.delegates, tml.delegates)
 		});
 	}
 };
@@ -1247,9 +1301,9 @@ app.modules['std:period'] = function () {
 	}
 };
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
-/*20211027-7807*/
+/*20220626-7852*/
 /* services/url.js */
 
 app.modules['std:url'] = function () {
@@ -1273,7 +1327,8 @@ app.modules['std:url'] = function () {
 		helpHref,
 		replaceSegment,
 		removeFirstSlash,
-		isNewPath
+		isNewPath,
+		splitCommand
 	};
 
 	function normalize(elem) {
@@ -1479,6 +1534,15 @@ app.modules['std:url'] = function () {
 			return true;
 		return false;
 	}
+
+	function splitCommand(url) {
+		let seg = url.split('/');
+		let action = seg.pop();
+		return {
+			action,
+			url: seg.join('/')
+		};
+	}
 };
 
 
@@ -1486,9 +1550,9 @@ app.modules['std:url'] = function () {
 
 
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
 
-// 20211210-7812
+// 20221124-7907
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1496,12 +1560,18 @@ app.modules['std:http'] = function () {
 	const eventBus = require('std:eventBus');
 	const urlTools = require('std:url');
 
+	const httpQueue = {
+		arr: [],
+		processing: false
+	};
+
 	return {
 		get,
 		post,
 		load,
 		upload,
-		localpost
+		localpost,
+		queue
 	};
 
 	async function doRequest(method, url, data, raw, skipEvents) {
@@ -1598,7 +1668,8 @@ app.modules['std:http'] = function () {
 		}
 	}
 
-	function load(url, selector, baseUrl) {
+	function load(url, selector, baseUrl, skipIndicator) {
+
 		if (selector) {
 			let fc = selector.firstElementChild
 			if (fc && fc.__vue__) {
@@ -1609,11 +1680,12 @@ app.modules['std:http'] = function () {
 				fc.__vue__ = null;
 				selector.innerHTML = '';
 			}
+			selector.__loadedUrl__ = url;
 		}
 
 		return new Promise(function (resolve, reject) {
 			eventBus.$emit('beginLoad');
-			doRequest('GET', url)
+			doRequest('GET', url, null, false, skipIndicator)
 				.then(function (html) {
 					if (!html)
 						return;
@@ -1622,6 +1694,14 @@ app.modules['std:http'] = function () {
 						window.location.assign('/');
 						return;
 					}
+
+					let cu = selector ? selector.__loadedUrl__ : undefined;
+					if (cu && cu !== url) {
+						// foreign url
+						eventBus.$emit('endLoad');
+						return;
+					}
+
 					let dp = new DOMParser();
 					let rdoc = dp.parseFromString(html, 'text/html');
 					// first element from fragment body
@@ -1644,6 +1724,7 @@ app.modules['std:http'] = function () {
 							document.body.appendChild(newScript).parentNode.removeChild(newScript);
 						}
 					}
+
 					let fec = selector.firstElementChild;
 					if (fec && fec.__vue__) {
 						let ve = fec.__vue__;
@@ -1691,6 +1772,23 @@ app.modules['std:http'] = function () {
 		} else {
 			throw response.statusText;
 		}
+	}
+
+	function queue(url, selector) {
+		httpQueue.arr.push({ url, selector });
+		if (!httpQueue.processing)
+			doQueue();
+	}
+
+	async function doQueue() {
+		if (!httpQueue.arr.length)
+			return;
+		httpQueue.processing = true;
+		while (httpQueue.arr.length > 0) {
+			let el = httpQueue.arr.shift();
+			await load(el.url, el.selector, null);
+		}
+		httpQueue.processing = false;
 	}
 };
 
@@ -1782,9 +1880,40 @@ app.modules['std:accel'] = function () {
 	}
 };
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20181121-7364
+/*20230224-7921*/
+/* services/barcode.js */
+
+app.modules['std:barcode'] = function () {
+
+	const checksum = (number) => {
+		let res = number
+			.substr(0, 12)
+			.split('')
+			.map(n => +n)
+			.reduce((sum, a, idx) => (idx % 2 ? sum + a * 3 : sum + a), 0);
+		return (10 - (res % 10)) % 10;
+	};
+
+	return {
+		generateEAN13
+	};
+
+	function generateEAN13(prefix, data) {
+		let len = 13;
+		let maxCodeLen = len - prefix.length - 2;
+		data = '' + (+data % +('1' + '0'.repeat(maxCodeLen)));
+		let need = (len - 1) - ('' + prefix).length - data.length;
+		let fill = '0'.repeat(need);
+		let code = `${prefix}${fill}${data}`;
+		return code + checksum(code);
+	}
+};
+
+// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
+
+// 20221124-7907
 /* platform/routex.js */
 
 (function () {
@@ -1848,6 +1977,9 @@ app.modules['std:accel'] = function () {
 		},
 		mutations: {
 			navigate: function (state, to) { // to: {url, query, title}
+				eventBus.$emit('closeAllPopups');
+				eventBus.$emit('modalCloseAll');
+				eventBus.$emit('showSidePane', null);
 				let root = window.$$rootUrl;
 				let oldUrl = root + state.route + urlTools.makeQueryString(state.query);
 				state.route = to.url.toLowerCase();
@@ -1948,9 +2080,9 @@ app.modules['std:accel'] = function () {
 
 	app.components['std:store'] = store;
 })();
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
 
-// 20210618-7785
+// 20221124-7907
 /*components/include.js*/
 
 (function () {
@@ -1980,7 +2112,9 @@ app.modules['std:accel'] = function () {
 			cssClass: String,
 			needReload: Boolean,
 			insideDialog: Boolean,
-			done: Function
+			done: Function,
+			queued: Boolean,
+			hideIndicator: Boolean
 		},
 		data() {
 			return {
@@ -2001,7 +2135,7 @@ app.modules['std:accel'] = function () {
 				if (this.currentUrl) {
 					// Do not set loading. Avoid blinking
 					this.__destroy();
-					http.load(this.currentUrl, this.$el)
+					http.load(this.currentUrl, this.$el, undefined, this.hideIndicator)
 						.then(this.loaded)
 						.catch(this.error);
 				}
@@ -2044,7 +2178,7 @@ app.modules['std:accel'] = function () {
 			//console.warn('include has been mounted');
 			if (this.src) {
 				this.currentUrl = this.src;
-				http.load(this.src, this.$el)
+				http.load(this.src, this.$el, undefined, this.hideIndicator)
 					.then(this.loaded)
 					.catch(this.error);
 			}
@@ -2073,7 +2207,7 @@ app.modules['std:accel'] = function () {
 					this.loading = true; // hides the current view
 					this.currentUrl = newUrl;
 					this.__destroy();
-					http.load(newUrl, this.$el)
+					http.load(newUrl, this.$el, undefined, this.hideIndicator)
 						.then(this.loaded)
 						.catch(this.error);
 				}
@@ -2091,7 +2225,7 @@ app.modules['std:accel'] = function () {
 		props: {
 			source: String,
 			arg: undefined,
-			dat: undefined
+			dat: undefined,
 		},
 		data() {
 			return {
@@ -2105,6 +2239,11 @@ app.modules['std:accel'] = function () {
 			},
 			loaded() {
 			},
+			error(msg) {
+				if (msg instanceof Error)
+					msg = msg.message;
+				alert(msg);
+			},
 			makeUrl() {
 				let arg = this.arg || '0';
 				let url = urlTools.combine('_page', this.source, arg);
@@ -2115,7 +2254,7 @@ app.modules['std:accel'] = function () {
 			load() {
 				let url = this.makeUrl();
 				this.__destroy();
-				http.load(url, this.$el)
+				http.load(url, this.$el, undefined, this.hideIndicator)
 					.then(this.loaded)
 					.catch(this.error);
 			}
@@ -2140,9 +2279,75 @@ app.modules['std:accel'] = function () {
 		mounted() {
 			if (this.source) {
 				this.currentUrl = this.makeUrl(this.source);
-				http.load(this.currentUrl, this.$el)
+				http.load(this.currentUrl, this.$el, undefined, this.hideIndicator)
 					.then(this.loaded)
 					.catch(this.error);
+			}
+		},
+		destroyed() {
+			this.__destroy(); // and for dialogs too
+		}
+	});
+
+
+	Vue.component('a2-queued-include', {
+		template: '<div class="a2-include"></div>',
+		props: {
+			source: String,
+			arg: undefined,
+			dat: undefined,
+		},
+		data() {
+			return {
+				needLoad: 0
+			};
+		},
+		methods: {
+			__destroy() {
+				//console.warn('include has been destroyed');
+				_destroyElement(this.$el);
+			},
+			loaded() {
+			},
+			error(msg) {
+				if (msg instanceof Error)
+					msg = msg.message;
+				alert(msg);
+			},
+			makeUrl() {
+				let arg = this.arg || '0';
+				let url = urlTools.combine('_page', this.source, arg);
+				if (this.dat)
+					url += urlTools.makeQueryString(this.dat);
+				return url;
+			},
+			load() {
+				let url = this.makeUrl();
+				this.__destroy();
+				http.queue(url, this.$el);
+			}
+		},
+		watch: {
+			source(newVal, oldVal) {
+				if (utils.isEqual(newVal, oldVal)) return;
+				this.needLoad += 1;
+			},
+			arg(newVal, oldVal) {
+				if (utils.isEqual(newVal, oldVal)) return;
+				this.needLoad += 1;
+			},
+			dat(newVal, oldVal) {
+				if (utils.isEqual(newVal, oldVal)) return;
+				this.needLoad += 1;
+			},
+			needLoad() {
+				this.load();
+			}
+		},
+		mounted() {
+			if (this.source) {
+				this.currentUrl = this.makeUrl(this.source);
+				http.queue(this.currentUrl, this.$el);
 			}
 		},
 		destroyed() {
@@ -2152,7 +2357,7 @@ app.modules['std:accel'] = function () {
 })();
 // Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
-// 20220414-7835
+// 20221127-7908
 // components/collectionview.js
 
 /*
@@ -2313,7 +2518,7 @@ TODO:
 				return arr;
 			},
 			sourceCount() {
-				return this.ItemsSource.length;
+				return this.filteredCount;
 			},
 			thisPager() {
 				return this;
@@ -2606,6 +2811,9 @@ TODO:
 		methods: {
 			commit(query) {
 				//console.dir(this.$root.$store);
+				query.__baseUrl__ = '';
+				if (this.$root.$data)
+					query.__baseUrl__ = this.$root.$data.__baseUrl__;
 				this.$store.commit('setquery', query);
 			},
 			sortDir(order) {
@@ -3528,9 +3736,9 @@ app.modules['std:validators'] = function () {
 
 
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20210623-7786*/
+/*20230318-7922*/
 /* services/impl/array.js */
 
 app.modules['std:impl:array'] = function () {
@@ -3636,6 +3844,7 @@ app.modules['std:impl:array'] = function () {
 		arr.$empty = function () {
 			if (this.$root.isReadOnly)
 				return this;
+			this._root_.$setDirty(true);
 			this.splice(0, this.length);
 			if ('$RowCount' in this)
 				this.$RowCount = 0;
@@ -3862,6 +4071,9 @@ app.modules['std:impl:array'] = function () {
 			return !!this.$selected;
 		});
 
+		defPropertyGet(arr, "$hasChecked", function () {
+			return this.$checked && this.$checked.length;
+		});
 	}
 
 	function defineArrayItemProto(elem) {
@@ -3894,9 +4106,9 @@ app.modules['std:impl:array'] = function () {
 	}
 };
 
-/* Copyright © 2015-2022 Alex Kukhtin. All rights reserved.*/
+/* Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.*/
 
-/*20220414-7837*/
+/*20230318-7922*/
 // services/datamodel.js
 
 /*
@@ -4172,8 +4384,15 @@ app.modules['std:impl:array'] = function () {
 			elem.$selected = false;
 
 		if (elem._meta_.$items) {
-			elem.$expanded = false; // tree elem
-			elem.$collapsed = false; // sheet elem
+			let exp = false;
+			let clps = false;
+			if (elem._meta_.$expanded) {
+				let val = source[elem._meta_.$expanded];
+				exp = !!val;
+				clps = !val;
+			}
+			elem.$expanded = exp; // tree elem
+			elem.$collapsed = clps; // sheet elem
 			elem.$level = 0;
 			addTreeMethods(elem);
 		}
@@ -4288,6 +4507,7 @@ app.modules['std:impl:array'] = function () {
 			elem._root_ctor_ = elem.constructor;
 			elem.$dirty = false;
 			elem._query_ = {};
+			elem._allErrors_ = [];
 
 			// rowcount implementation
 			for (var m in elem._meta_.props) {
@@ -4834,6 +5054,36 @@ app.modules['std:impl:array'] = function () {
 
 	}
 
+	function hasErrors(props) {
+		if (!props || !props.length) return false;
+		let errs = this._collectErrors_();
+		if (!errs.length) return false;
+		for (let i = 0; i < errs.length; i++) {
+			let e = errs[i];
+			if (props.some(p => p === e.x))
+				return true;
+		}
+		return false;
+	}
+
+	function collectErrors() {
+		let me = this;
+		if (!me._host_) return me._allErrors_;
+		if (!me._needValidate_) return me._allErrors_;
+		let tml = me.$template;
+		if (!tml) return me._allErrors_;
+		let vals = tml.validators;
+		if (!vals) return me._allErrors_;
+		me._allErrors_.splice(0, me._allErrors_.length);
+		for (var val in vals) {
+			let err1 = validateOneElement(me, val, vals[val]);
+			if (err1) {
+				me._allErrors_.push({ x: val, e: err1 });
+			}
+		}
+		return me._allErrors_;
+	}
+
 	function validateAll(force) {
 		var me = this;
 		if (!me._host_) return;
@@ -4963,7 +5213,8 @@ app.modules['std:impl:array'] = function () {
 				if (Array.isArray(trg)) {
 					if (trg.$loaded)
 						trg.$loaded = false; // may be lazy
-					trg.$copy(src[prop]);
+					if ('$copy' in trg)
+						trg.$copy(src[prop]);
 					// copy rowCount
 					if (ROWCOUNT in trg) {
 						let rcProp = prop + '.$RowCount';
@@ -5020,6 +5271,8 @@ app.modules['std:impl:array'] = function () {
 		root.prototype._validate_ = validate;
 		root.prototype._validateAll_ = validateAll;
 		root.prototype.$forceValidate = forceValidateAll;
+		root.prototype._collectErrors_ = collectErrors;
+		root.prototype.$hasErrors = hasErrors;
 		root.prototype.$destroy = destroyRoot;
 		// props cache for t.construct
 		if (!template) return;
@@ -5086,16 +5339,16 @@ app.modules['std:impl:array'] = function () {
 })();
 
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
 
-// 20210302-7752
+// 20221124-7907
 // dataservice.js
 (function () {
 
 	let http = require('std:http');
 
-	function post(url, data, raw) {
-		return http.post(url, data, raw);
+	function post(url, data, raw, hideIndicator) {
+		return http.post(url, data, raw, hideIndicator);
 	}
 
 	function get(url) {
@@ -5111,9 +5364,9 @@ app.modules['std:impl:array'] = function () {
 
 
 
-// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20220420-7840*/
+/*20230224-7921*/
 // controllers/base.js
 
 (function () {
@@ -5252,8 +5505,31 @@ app.modules['std:impl:array'] = function () {
 					this.$alert(locale.$PermissionDenied);
 					return;
 				}
+				eventBus.$emit('closeAllPopups');
 				const root = this.$data;
 				return root._exec_(cmd, arg, confirm, opts);
+			},
+
+			async $invokeServer(url, arg, confirm, opts) {
+				if (this.$isReadOnly(opts)) return;
+				if (this.$isLoading) return;
+				eventBus.$emit('closeAllPopups');
+				const root = this.$data;
+				if (confirm)
+					await this.$confirm(confirm);
+				if (opts && opts.saveRequired && this.$isDirty)
+					await this.$save();
+				if (opts && opts.validRequired && root.$invalid) { 
+					this.$alert(locale.$MakeValidFirst);
+					return;
+				}
+				let data = { Id: arg.$id };
+				let cmd = urltools.splitCommand(url);
+				await this.$invoke(cmd.action, data, cmd.url);
+				if (opts && opts.requeryAfter)
+					await this.$requery();
+				else if (opts && opts.reloadAfter)
+					await this.$reload();
 			},
 
 			$toJson(data) {
@@ -5273,6 +5549,7 @@ app.modules['std:impl:array'] = function () {
 					console.error('Invalid argument for $execSelected');
 					return;
 				}
+				eventBus.$emit('closeAllPopups');
 				if (!confirm)
 					root._exec_(cmd, arg.$selected);
 				else
@@ -5301,11 +5578,21 @@ app.modules['std:impl:array'] = function () {
 				else
 					log.error('There is no caller here');
 			},
+			$clearObject(obj) {
+				if (!obj) return;
+				if (obj.$empty)
+					obj.$empty();
+				else {
+					for (let k of Object.keys(obj))
+						obj[k] = null;
+				}
+			},
 			$save(opts) {
 				if (this.$data.$readOnly)
 					return;
 				if (!this.$data.$dirty)
 					return;
+				eventBus.$emit('closeAllPopups');
 				let mainObjectName = this.$data._meta_.$main;
 				let self = this;
 				let root = window.$$rootUrl;
@@ -5391,6 +5678,10 @@ app.modules['std:impl:array'] = function () {
 				bus.$emit('childrenSaved', dat);
 			},
 
+			$showSidePane(url, arg, data) {
+				let newurl = urltools.combine('_navpane', url, arg || '0') + urltools.makeQueryString(data);
+				eventBus.$emit('showSidePane', newurl);
+			},
 
 			$invoke(cmd, data, base, opts) {
 				let self = this;
@@ -5400,9 +5691,10 @@ app.modules['std:impl:array'] = function () {
 				let baseUrl = self.$indirectUrl || self.$baseUrl;
 				if (base)
 					baseUrl = urltools.combine('_page', base, 'index', 0);
+				let hideIndicator = opts && opts.hideIndicator || false;
 				return new Promise(function (resolve, reject) {
 					var jsonData = utils.toJson({ cmd: cmd, baseUrl: baseUrl, data: data });
-					dataservice.post(url, jsonData).then(function (data) {
+					dataservice.post(url, jsonData, false, hideIndicator).then(function (data) {
 						if (self.__destroyed__) return;
 						if (utils.isObject(data))
 							resolve(data);
@@ -5449,6 +5741,7 @@ app.modules['std:impl:array'] = function () {
 
 			$reload(args) {
 				//console.dir('$reload was called for' + this.$baseUrl);
+				eventBus.$emit('closeAllPopups');
 				let self = this;
 				if (utils.isArray(args) && args.$isLazy()) {
 					// reload lazy
@@ -5502,7 +5795,11 @@ app.modules['std:impl:array'] = function () {
 					});
 				});
 			},
-
+			async $nodirty(callback) {
+				let wasDirty = this.$data.$dirty;
+				await callback();
+				this.$defer(() => this.$data.$setDirty(wasDirty));
+			},
 			$requery() {
 				if (this.inDialog)
 					eventBus.$emit('modalRequery', this.$baseUrl);
@@ -5513,6 +5810,7 @@ app.modules['std:impl:array'] = function () {
 			$remove(item, confirm) {
 				if (this.$data.$readOnly) return;
 				if (this.$isLoading) return;
+				eventBus.$emit('closeAllPopups');
 				if (!confirm)
 					item.$remove();
 				else
@@ -5536,6 +5834,9 @@ app.modules['std:impl:array'] = function () {
 					href += '?subject=' + urltools.encodeUrl(subject);
 				return href;
 			},
+			$callphone(phone) {
+				return `tel:${phone}`;
+			},
 			$href(url, data) {
 				return urltools.createUrlForNavigate(url, data);
 			},
@@ -5552,6 +5853,7 @@ app.modules['std:impl:array'] = function () {
 					this.$store.commit('navigate', { url: urlToNavigate });
 			},
 			$navigateSimple(url, newWindow, update) {
+				eventBus.$emit('closeAllPopups');
 				if (newWindow === true) {
 					let nwin = window.open(url, "_blank");
 					if (nwin)
@@ -5562,6 +5864,7 @@ app.modules['std:impl:array'] = function () {
 			},
 
 			$navigateExternal(url, newWindow) {
+				eventBus.$emit('closeAllPopups');
 				if (newWindow === true) {
 					window.open(url, "_blank");
 				}
@@ -5570,23 +5873,29 @@ app.modules['std:impl:array'] = function () {
 			},
 
 			$download(url) {
+				eventBus.$emit('closeAllPopups');
 				const root = window.$$rootUrl;
 				url = urltools.combine('/file', url.replace('.', '-'));
 				window.location = root + url;
 			},
 
-			async $upload(url, accept) {
+			async $upload(url, accept, data, opts) {
+				eventBus.$emit('closeAllPopups');
 				let root = window.$$rootUrl;
 				try {
 					let file = await htmlTools.uploadFile(accept, url);
 					var dat = new FormData();
 					dat.append('file', file, file.name);
+					if (data)
+						dat.append('Key', data.Key || null);
 					let uploadUrl = urltools.combine(root, '_file', url);
-					uploadUrl = urltools.createUrlForNavigate(uploadUrl);
+					uploadUrl = urltools.createUrlForNavigate(uploadUrl, data);
 					return await httpTools.upload(uploadUrl, dat);
 				} catch (err) {
 					err = err || 'unknown error';
-					if (err.indexOf('UI:') === 0)
+					if (opts && opts.catchError)
+						throw err;
+					else if (err.indexOf('UI:') === 0)
 						this.$alert(err);
 					else
 						alert(err);
@@ -5594,6 +5903,7 @@ app.modules['std:impl:array'] = function () {
 			},
 
 			$file(url, arg, opts) {
+				eventBus.$emit('closeAllPopups');
 				const root = window.$$rootUrl;
 				let id = arg;
 				let token = undefined;
@@ -5623,6 +5933,7 @@ app.modules['std:impl:array'] = function () {
 			},
 
 			$attachment(url, arg, opts) {
+				eventBus.$emit('closeAllPopups');
 				const root = window.$$rootUrl;
 				let cmd = opts && opts.export ? 'export' : 'show';
 				let id = arg;
@@ -5639,6 +5950,8 @@ app.modules['std:impl:array'] = function () {
 				attUrl = attUrl + urltools.makeQueryString(qry);
 				if (opts && opts.newWindow)
 					window.open(attUrl, '_blank');
+				else if (opts && opts.print)
+					htmlTools.printDirect(attUrl);
 				else
 					window.location.assign(attUrl);
 			},
@@ -5673,6 +5986,8 @@ app.modules['std:impl:array'] = function () {
 					return;
 				}
 				if (this.$isLoading) return;
+				eventBus.$emit('closeAllPopups');
+
 				let id = elem.$id;
 				let lazy = elem.$parent.$isLazy ? elem.$parent.$isLazy() : false;
 				let root = window.$$rootUrl;
@@ -5712,6 +6027,7 @@ app.modules['std:impl:array'] = function () {
 
 			$dbRemoveSelected(arr, confirm, opts) {
 				if (this.$isLoading) return;
+				eventBus.$emit('closeAllPopups');
 				let sel = arr.$selected;
 				if (!sel)
 					return;
@@ -5728,6 +6044,7 @@ app.modules['std:impl:array'] = function () {
 			},
 
 			$openSelected(url, arr, newwin, update) {
+				eventBus.$emit('closeAllPopups');
 				url = url || '';
 				let sel = arr.$selected;
 				if (!sel)
@@ -5899,7 +6216,7 @@ app.modules['std:impl:array'] = function () {
 							return __runDialog(url, arg, query, (result) => {
 								if (arg.$merge) {
 									arg.$merge(result);
-								} else {
+								} else if (result !== false) {
 									simpleMerge(arg, result);
 								}
 							});
@@ -6020,7 +6337,7 @@ app.modules['std:impl:array'] = function () {
 			$report(rep, arg, opts, repBaseUrl, data) {
 				if (this.$isReadOnly(opts)) return;
 				if (this.$isLoading) return;
-
+				eventBus.$emit('closeAllPopups');
 				let cmd = 'show';
 				let fmt = '';
 				let viewer = 'report';
@@ -6388,8 +6705,17 @@ app.modules['std:impl:array'] = function () {
 				if (!utils.isObjectExact(search)) {
 					console.error('base.__queryChange. invalid argument type');
 				}
+				let searchBase = search.__baseUrl__;
+				if (searchBase) {
+					let searchurl = urltools.parseUrlAndQuery(searchBase);
+					let thisurl = urltools.parseUrlAndQuery(this.$data.__baseUrl__);
+					if (searchurl.url !== thisurl.url)
+						return;
+				}
 				let nq = Object.assign({}, this.$baseQuery);
 				for (let p in search) {
+					if (p.startsWith('__'))
+						continue;
 					if (search[p]) {
 						// replace from search
 						nq[p] = search[p];
@@ -6444,7 +6770,9 @@ app.modules['std:impl:array'] = function () {
 					$report: this.$report,
 					$upload: this.$upload,
 					$emitCaller: this.$emitCaller,
-					$emitSaveEvent: this.$emitSaveEvent
+					$emitSaveEvent: this.$emitSaveEvent,
+					$nodirty: this.$nodirty,
+					$showSidePane: this.$showSidePane
 				};
 				Object.defineProperty(ctrl, "$isDirty", {
 					enumerable: true,
@@ -6485,6 +6813,8 @@ app.modules['std:impl:array'] = function () {
 				if (json.saveEvent) {
 					this.__saveEvent__ = json.saveEvent;
 				}
+				if (json.placement)
+					result.placement = json.placement;
 				return result;
 			},
 			__isModalRequery() {
@@ -6573,9 +6903,9 @@ app.modules['std:impl:array'] = function () {
 
 	app.components['baseController'] = base;
 })();
-// Copyright © 2020 Alex Kukhtin. All rights reserved.
+// Copyright © 2020-2022 Alex Kukhtin. All rights reserved.
 
-/*20200604-7671*/
+/*20220816-7880*/
 /* controllers/navmenu.js */
 
 (function () {
@@ -6626,6 +6956,8 @@ app.modules['std:impl:array'] = function () {
 			am = menu.find((mi) => mi.Url === seg1);
 		if (!am) {
 			// no segments - find first active menu
+			if (seg1)
+				return url; // invalid segment -> invalid url
 			let parentMenu = { Url: '' };
 			am = findMenu(menu, (mi) => mi.Url && !mi.Menu, parentMenu);
 			if (am) {

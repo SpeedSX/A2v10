@@ -166,9 +166,9 @@
 
 })();
 
-// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20220416-7838
+// 20230224-7921
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -192,6 +192,7 @@ app.modules['std:utils'] = function () {
 
 	let numFormatCache = {};
 
+	const zeroDate = new Date(Date.UTC(0, 0, 1, 0, 0, 0, 0));
 
 	return {
 		isArray: Array.isArray,
@@ -217,6 +218,8 @@ app.modules['std:utils'] = function () {
 		getStringId,
 		isEqual,
 		ensureType,
+		clearObject,
+		isPlainObjectEmpty,
 		date: {
 			today: dateToday,
 			now: dateNow,
@@ -230,6 +233,7 @@ app.modules['std:utils'] = function () {
 			add: dateAdd,
 			diff: dateDiff,
 			create: dateCreate,
+			createTime: dateCreateTime,
 			compare: dateCompare,
 			endOfMonth: endOfMonth,
 			minDate: dateCreate(1901, 1, 1),
@@ -336,6 +340,35 @@ app.modules['std:utils'] = function () {
 		else if (isObject(obj))
 			return toJson(obj);
 		return '' + obj;
+	}
+
+	function isPlainObjectEmpty(obj) {
+		if (!obj) return true;
+		return !Object.keys(obj).some(key => !!obj[key]);
+	}
+
+	function clearObject(obj) {
+		for (let key of Object.keys(obj)) {
+			let val = obj[key];
+			if (!val)
+				continue;
+			switch (typeof (val)) {
+				case 'number':
+					obj[key] = 0;
+					break;
+				case 'string':
+					obj[key] = '';
+					break;
+				case 'object':
+					clearObject(obj[key]);
+					break;
+				case 'boolean':
+					obj[key] = false;
+					break;
+				default:
+					console.error(`utils.clearObject. Unknown property type ${typeof (val)}`);
+			}
+		}
 	}
 
 	function ensureType(type, val) {
@@ -570,8 +603,7 @@ app.modules['std:utils'] = function () {
 	}
 
 	function dateZero() {
-		let td = new Date(Date.UTC(0, 0, 1, 0, 0, 0, 0));
-		return td;
+		return zeroDate;
 	}
 
 	function dateTryParse(str) {
@@ -689,6 +721,11 @@ app.modules['std:utils'] = function () {
 
 	function dateCreate(year, month, day) {
 		let dt = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+		return dt;
+	}
+
+	function dateCreateTime(year, month, day, hour, min, sec) {
+		let dt = new Date(Date.UTC(year, month - 1, day, hour || 0, min || 0, sec || 0, 0));
 		return dt;
 	}
 
@@ -845,6 +882,22 @@ app.modules['std:utils'] = function () {
 					break;
 				case 'barcode':
 					value = toLatin(value);
+					break;
+				case 'fract3':
+					value = currencyRound(toNumber(value), 3);
+					break;
+				case 'fract2':
+					value = currencyRound(toNumber(value), 2);
+					break;
+				case 'eval':
+					if (value.startsWith('=')) {
+						try {
+							value = eval(value.replace(/[^0-9\s\+\-\*\/\,\.\,]/g, '').replaceAll(',', '.'));
+						} catch (err) {
+							value = '';
+						}
+					}
+					break;
 			}
 		}
 		return value;
@@ -932,14 +985,15 @@ app.modules['std:utils'] = function () {
 			validators: assign(src.validators, tml.validators),
 			events: assign(src.events, tml.events),
 			defaults: assign(src.defaults, tml.defaults),
-			commands: assign(src.commands, tml.commands)
+			commands: assign(src.commands, tml.commands),
+			delegates: assign(src.delegates, tml.delegates)
 		});
 	}
 };
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
-/*20211027-7807*/
+/*20220626-7852*/
 /* services/url.js */
 
 app.modules['std:url'] = function () {
@@ -963,7 +1017,8 @@ app.modules['std:url'] = function () {
 		helpHref,
 		replaceSegment,
 		removeFirstSlash,
-		isNewPath
+		isNewPath,
+		splitCommand
 	};
 
 	function normalize(elem) {
@@ -1168,6 +1223,15 @@ app.modules['std:url'] = function () {
 		if (isDialogPath(url) && url.endsWith('/0'))
 			return true;
 		return false;
+	}
+
+	function splitCommand(url) {
+		let seg = url.split('/');
+		let action = seg.pop();
+		return {
+			action,
+			url: seg.join('/')
+		};
 	}
 };
 
@@ -1610,9 +1674,9 @@ app.modules['std:modelInfo'] = function () {
 };
 
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
 
-// 20211210-7812
+// 20221124-7907
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1620,12 +1684,18 @@ app.modules['std:http'] = function () {
 	const eventBus = require('std:eventBus');
 	const urlTools = require('std:url');
 
+	const httpQueue = {
+		arr: [],
+		processing: false
+	};
+
 	return {
 		get,
 		post,
 		load,
 		upload,
-		localpost
+		localpost,
+		queue
 	};
 
 	async function doRequest(method, url, data, raw, skipEvents) {
@@ -1722,7 +1792,8 @@ app.modules['std:http'] = function () {
 		}
 	}
 
-	function load(url, selector, baseUrl) {
+	function load(url, selector, baseUrl, skipIndicator) {
+
 		if (selector) {
 			let fc = selector.firstElementChild
 			if (fc && fc.__vue__) {
@@ -1733,11 +1804,12 @@ app.modules['std:http'] = function () {
 				fc.__vue__ = null;
 				selector.innerHTML = '';
 			}
+			selector.__loadedUrl__ = url;
 		}
 
 		return new Promise(function (resolve, reject) {
 			eventBus.$emit('beginLoad');
-			doRequest('GET', url)
+			doRequest('GET', url, null, false, skipIndicator)
 				.then(function (html) {
 					if (!html)
 						return;
@@ -1746,6 +1818,14 @@ app.modules['std:http'] = function () {
 						window.location.assign('/');
 						return;
 					}
+
+					let cu = selector ? selector.__loadedUrl__ : undefined;
+					if (cu && cu !== url) {
+						// foreign url
+						eventBus.$emit('endLoad');
+						return;
+					}
+
 					let dp = new DOMParser();
 					let rdoc = dp.parseFromString(html, 'text/html');
 					// first element from fragment body
@@ -1768,6 +1848,7 @@ app.modules['std:http'] = function () {
 							document.body.appendChild(newScript).parentNode.removeChild(newScript);
 						}
 					}
+
 					let fec = selector.firstElementChild;
 					if (fec && fec.__vue__) {
 						let ve = fec.__vue__;
@@ -1815,6 +1896,23 @@ app.modules['std:http'] = function () {
 		} else {
 			throw response.statusText;
 		}
+	}
+
+	function queue(url, selector) {
+		httpQueue.arr.push({ url, selector });
+		if (!httpQueue.processing)
+			doQueue();
+	}
+
+	async function doQueue() {
+		if (!httpQueue.arr.length)
+			return;
+		httpQueue.processing = true;
+		while (httpQueue.arr.length > 0) {
+			let el = httpQueue.arr.shift();
+			await load(el.url, el.selector, null);
+		}
+		httpQueue.processing = false;
 	}
 };
 
@@ -2550,9 +2648,9 @@ Vue.component('a2-pager', {
 });
 
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20210623-7786*/
+/*20230318-7922*/
 /* services/impl/array.js */
 
 app.modules['std:impl:array'] = function () {
@@ -2658,6 +2756,7 @@ app.modules['std:impl:array'] = function () {
 		arr.$empty = function () {
 			if (this.$root.isReadOnly)
 				return this;
+			this._root_.$setDirty(true);
 			this.splice(0, this.length);
 			if ('$RowCount' in this)
 				this.$RowCount = 0;
@@ -2884,6 +2983,9 @@ app.modules['std:impl:array'] = function () {
 			return !!this.$selected;
 		});
 
+		defPropertyGet(arr, "$hasChecked", function () {
+			return this.$checked && this.$checked.length;
+		});
 	}
 
 	function defineArrayItemProto(elem) {
@@ -2916,9 +3018,9 @@ app.modules['std:impl:array'] = function () {
 	}
 };
 
-/* Copyright © 2015-2022 Alex Kukhtin. All rights reserved.*/
+/* Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.*/
 
-/*20220414-7837*/
+/*20230318-7922*/
 // services/datamodel.js
 
 /*
@@ -3194,8 +3296,15 @@ app.modules['std:impl:array'] = function () {
 			elem.$selected = false;
 
 		if (elem._meta_.$items) {
-			elem.$expanded = false; // tree elem
-			elem.$collapsed = false; // sheet elem
+			let exp = false;
+			let clps = false;
+			if (elem._meta_.$expanded) {
+				let val = source[elem._meta_.$expanded];
+				exp = !!val;
+				clps = !val;
+			}
+			elem.$expanded = exp; // tree elem
+			elem.$collapsed = clps; // sheet elem
 			elem.$level = 0;
 			addTreeMethods(elem);
 		}
@@ -3310,6 +3419,7 @@ app.modules['std:impl:array'] = function () {
 			elem._root_ctor_ = elem.constructor;
 			elem.$dirty = false;
 			elem._query_ = {};
+			elem._allErrors_ = [];
 
 			// rowcount implementation
 			for (var m in elem._meta_.props) {
@@ -3856,6 +3966,36 @@ app.modules['std:impl:array'] = function () {
 
 	}
 
+	function hasErrors(props) {
+		if (!props || !props.length) return false;
+		let errs = this._collectErrors_();
+		if (!errs.length) return false;
+		for (let i = 0; i < errs.length; i++) {
+			let e = errs[i];
+			if (props.some(p => p === e.x))
+				return true;
+		}
+		return false;
+	}
+
+	function collectErrors() {
+		let me = this;
+		if (!me._host_) return me._allErrors_;
+		if (!me._needValidate_) return me._allErrors_;
+		let tml = me.$template;
+		if (!tml) return me._allErrors_;
+		let vals = tml.validators;
+		if (!vals) return me._allErrors_;
+		me._allErrors_.splice(0, me._allErrors_.length);
+		for (var val in vals) {
+			let err1 = validateOneElement(me, val, vals[val]);
+			if (err1) {
+				me._allErrors_.push({ x: val, e: err1 });
+			}
+		}
+		return me._allErrors_;
+	}
+
 	function validateAll(force) {
 		var me = this;
 		if (!me._host_) return;
@@ -3985,7 +4125,8 @@ app.modules['std:impl:array'] = function () {
 				if (Array.isArray(trg)) {
 					if (trg.$loaded)
 						trg.$loaded = false; // may be lazy
-					trg.$copy(src[prop]);
+					if ('$copy' in trg)
+						trg.$copy(src[prop]);
 					// copy rowCount
 					if (ROWCOUNT in trg) {
 						let rcProp = prop + '.$RowCount';
@@ -4042,6 +4183,8 @@ app.modules['std:impl:array'] = function () {
 		root.prototype._validate_ = validate;
 		root.prototype._validateAll_ = validateAll;
 		root.prototype.$forceValidate = forceValidateAll;
+		root.prototype._collectErrors_ = collectErrors;
+		root.prototype.$hasErrors = hasErrors;
 		root.prototype.$destroy = destroyRoot;
 		// props cache for t.construct
 		if (!template) return;
@@ -4108,16 +4251,16 @@ app.modules['std:impl:array'] = function () {
 })();
 
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
 
-// 20210302-7752
+// 20221124-7907
 // dataservice.js
 (function () {
 
 	let http = require('std:http');
 
-	function post(url, data, raw) {
-		return http.post(url, data, raw);
+	function post(url, data, raw, hideIndicator) {
+		return http.post(url, data, raw, hideIndicator);
 	}
 
 	function get(url) {
@@ -4133,9 +4276,9 @@ app.modules['std:impl:array'] = function () {
 
 
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
 
-// 20210618-7785
+// 20221124-7907
 /*components/include.js*/
 
 (function () {
@@ -4165,7 +4308,9 @@ app.modules['std:impl:array'] = function () {
 			cssClass: String,
 			needReload: Boolean,
 			insideDialog: Boolean,
-			done: Function
+			done: Function,
+			queued: Boolean,
+			hideIndicator: Boolean
 		},
 		data() {
 			return {
@@ -4186,7 +4331,7 @@ app.modules['std:impl:array'] = function () {
 				if (this.currentUrl) {
 					// Do not set loading. Avoid blinking
 					this.__destroy();
-					http.load(this.currentUrl, this.$el)
+					http.load(this.currentUrl, this.$el, undefined, this.hideIndicator)
 						.then(this.loaded)
 						.catch(this.error);
 				}
@@ -4229,7 +4374,7 @@ app.modules['std:impl:array'] = function () {
 			//console.warn('include has been mounted');
 			if (this.src) {
 				this.currentUrl = this.src;
-				http.load(this.src, this.$el)
+				http.load(this.src, this.$el, undefined, this.hideIndicator)
 					.then(this.loaded)
 					.catch(this.error);
 			}
@@ -4258,7 +4403,7 @@ app.modules['std:impl:array'] = function () {
 					this.loading = true; // hides the current view
 					this.currentUrl = newUrl;
 					this.__destroy();
-					http.load(newUrl, this.$el)
+					http.load(newUrl, this.$el, undefined, this.hideIndicator)
 						.then(this.loaded)
 						.catch(this.error);
 				}
@@ -4276,7 +4421,7 @@ app.modules['std:impl:array'] = function () {
 		props: {
 			source: String,
 			arg: undefined,
-			dat: undefined
+			dat: undefined,
 		},
 		data() {
 			return {
@@ -4290,6 +4435,11 @@ app.modules['std:impl:array'] = function () {
 			},
 			loaded() {
 			},
+			error(msg) {
+				if (msg instanceof Error)
+					msg = msg.message;
+				alert(msg);
+			},
 			makeUrl() {
 				let arg = this.arg || '0';
 				let url = urlTools.combine('_page', this.source, arg);
@@ -4300,7 +4450,7 @@ app.modules['std:impl:array'] = function () {
 			load() {
 				let url = this.makeUrl();
 				this.__destroy();
-				http.load(url, this.$el)
+				http.load(url, this.$el, undefined, this.hideIndicator)
 					.then(this.loaded)
 					.catch(this.error);
 			}
@@ -4325,7 +4475,7 @@ app.modules['std:impl:array'] = function () {
 		mounted() {
 			if (this.source) {
 				this.currentUrl = this.makeUrl(this.source);
-				http.load(this.currentUrl, this.$el)
+				http.load(this.currentUrl, this.$el, undefined, this.hideIndicator)
 					.then(this.loaded)
 					.catch(this.error);
 			}
@@ -4334,10 +4484,76 @@ app.modules['std:impl:array'] = function () {
 			this.__destroy(); // and for dialogs too
 		}
 	});
-})();
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
 
-// 20211028-7807
+
+	Vue.component('a2-queued-include', {
+		template: '<div class="a2-include"></div>',
+		props: {
+			source: String,
+			arg: undefined,
+			dat: undefined,
+		},
+		data() {
+			return {
+				needLoad: 0
+			};
+		},
+		methods: {
+			__destroy() {
+				//console.warn('include has been destroyed');
+				_destroyElement(this.$el);
+			},
+			loaded() {
+			},
+			error(msg) {
+				if (msg instanceof Error)
+					msg = msg.message;
+				alert(msg);
+			},
+			makeUrl() {
+				let arg = this.arg || '0';
+				let url = urlTools.combine('_page', this.source, arg);
+				if (this.dat)
+					url += urlTools.makeQueryString(this.dat);
+				return url;
+			},
+			load() {
+				let url = this.makeUrl();
+				this.__destroy();
+				http.queue(url, this.$el);
+			}
+		},
+		watch: {
+			source(newVal, oldVal) {
+				if (utils.isEqual(newVal, oldVal)) return;
+				this.needLoad += 1;
+			},
+			arg(newVal, oldVal) {
+				if (utils.isEqual(newVal, oldVal)) return;
+				this.needLoad += 1;
+			},
+			dat(newVal, oldVal) {
+				if (utils.isEqual(newVal, oldVal)) return;
+				this.needLoad += 1;
+			},
+			needLoad() {
+				this.load();
+			}
+		},
+		mounted() {
+			if (this.source) {
+				this.currentUrl = this.makeUrl(this.source);
+				http.queue(this.currentUrl, this.$el);
+			}
+		},
+		destroyed() {
+			this.__destroy(); // and for dialogs too
+		}
+	});
+})();
+// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
+
+// 20221002-7894
 // components/modal.js
 
 
@@ -4395,6 +4611,21 @@ app.modules['std:impl:array'] = function () {
 			let mw = el.closest('.modal-window');
 			if (mw && binding.value)
 				mw.setAttribute('maximize', 'true');
+		}
+	}
+
+	const modalPlacementComponent = {
+		inserted(el, binding) {
+			if (!binding.value)
+				return;
+			let mw = el.closest('.modal-window');
+			if (!mw || !mw.__vue__)
+				return;
+			if (mw.__vue__.$data)
+				mw.__vue__.$data.placement = ' with-placement ' + binding.value;
+			let mf = mw.closest('.modal-wrapper')
+			if (mf)
+				mf.setAttribute('data-placement', binding.value);
 		}
 	}
 
@@ -4459,6 +4690,8 @@ app.modules['std:impl:array'] = function () {
 
 	Vue.directive('maximize', maximizeComponent);
 
+	Vue.directive("modal-placement", modalPlacementComponent)
+
 	const modalComponent = {
 		template: modalTemplate,
 		props: {
@@ -4468,6 +4701,7 @@ app.modules['std:impl:array'] = function () {
 			// always need a new instance of function (modal stack)
 			return {
 				modalCreated: false,
+				placement: '',
 				keyUpHandler: function (event) {
 					// escape
 					if (event.which === 27) {
@@ -4517,7 +4751,7 @@ app.modules['std:impl:array'] = function () {
 				return !!this.dialog.url;
 			},
 			mwClass() {
-				return this.modalCreated ? 'loaded' : '';
+				return this.placement + (this.modalCreated ? ' loaded' : '');
 			},
 			hasIcon() {
 				return !!this.dialog.style;
@@ -5159,9 +5393,9 @@ app.modules['std:impl:array'] = function () {
 
 	app.components['standaloneController'] = standalone;
 })();
-// Copyright © 2020 Alex Kukhtin. All rights reserved.
+// Copyright © 2020-2022 Alex Kukhtin. All rights reserved.
 
-/*20200604-7671*/
+/*20220816-7880*/
 /* controllers/navmenu.js */
 
 (function () {
@@ -5212,6 +5446,8 @@ app.modules['std:impl:array'] = function () {
 			am = menu.find((mi) => mi.Url === seg1);
 		if (!am) {
 			// no segments - find first active menu
+			if (seg1)
+				return url; // invalid segment -> invalid url
 			let parentMenu = { Url: '' };
 			am = findMenu(menu, (mi) => mi.Url && !mi.Menu, parentMenu);
 			if (am) {
@@ -5587,9 +5823,9 @@ app.modules['std:impl:array'] = function () {
 		tabSideBar: a2TabSideBar
 	};
 })();	
-// Copyright © 2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2021-2022 Oleksandr Kukhtin. All rights reserved.
 
-/*20210914-7803*/
+/*20221123-7907*/
 /* controllers/appheader.js */
 
 (function () {

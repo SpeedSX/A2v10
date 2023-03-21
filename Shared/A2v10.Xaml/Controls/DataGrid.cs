@@ -111,9 +111,9 @@ namespace A2v10.Xaml
 				dataGrid.MergeAttribute("row-details-activate", RowDetails.Activate.ToString().ToLowerInvariant());
 				var vBind = RowDetails.GetBinding("Visible");
 				if (vBind != null)
-				{
 					dataGrid.MergeAttribute("row-details-visible", vBind.Path /*!without context!*/);
-				}
+				else
+					dataGrid.MergeAttribute(":row-details-visible", RowDetails.Visible.ToString().ToLowerInvariant());
 			}
 			var isb = GetBinding(nameof(ItemsSource));
 			if (isb != null)
@@ -232,11 +232,11 @@ namespace A2v10.Xaml
 				col.SetParent(this);
 		}
 
-		public override void OnSetStyles()
+		public override void OnSetStyles(RootContainer root)
 		{
-			base.OnSetStyles();
+			base.OnSetStyles(root);
 			foreach (var col in Columns)
-				col.OnSetStyles();
+				col.OnSetStyles(root);
 		}
 	}
 }

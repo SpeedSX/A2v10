@@ -1,10 +1,9 @@
-﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
 
 using System;
 using System.Threading.Tasks;
 using System.Dynamic;
-using System.IO;
 using System.Text;
 using System.Web.Mvc;
 using System.Web;
@@ -41,14 +40,36 @@ namespace A2v10.Web.Mvc.Controllers
 	[CheckMobileFilter]
 	public class ReportController : Controller, IControllerProfiler, IControllerTenant, IControllerLocale
 	{
-		A2v10.Request.BaseController _baseController = new BaseController();
-        ReportHelper _reportHelper;
+		readonly A2v10.Request.BaseController _baseController = new BaseController();
+        ReportHelper _reportHelper = null;
+		PdfReportHelper _pdfReportHelper = null;
+		private readonly ReportHelperInfo _reportInfo;
 
 		public ReportController()
 		{
 			_baseController.Host.StartApplication(false);
-             _reportHelper = new ReportHelper(_baseController.Host);
-        }
+			_reportInfo = new ReportHelperInfo(_baseController.Host);
+		}
+
+		private ReportHelper ReportHelper
+		{
+			get
+			{
+				if (_reportHelper == null)
+					_reportHelper = new ReportHelper(_baseController.Host);
+				return _reportHelper;
+			}
+		}
+
+		private PdfReportHelper PdfReportHelper
+		{
+			get
+			{
+				if (_pdfReportHelper == null)
+					_pdfReportHelper = new PdfReportHelper(_baseController.Host);
+				return _pdfReportHelper;
+			}
+		}
 
 		public Int64 UserId => User.Identity.GetUserId<Int64>();
 		public Int32 TenantId => User.Identity.GetUserTenantId();
@@ -70,25 +91,61 @@ namespace A2v10.Web.Mvc.Controllers
 		[HttpGet]
 		public async Task Show(String Base, String Rep, String id)
 		{
-			_reportHelper.SetupLicense();
 			try
 			{
 				var url = $"/_report/{Base.RemoveHeadSlash()}/{Rep}/{id}";
+
+
 				RequestModel rm = await RequestModel.CreateFromBaseUrl(_baseController.Host, url);
 				var rep = rm.GetReport();
+				switch (rep.type)
+				{
+					case RequestReportType.stimulsoft:
+						ShowStimulsoft(rep, Rep);
+						break;
+					case RequestReportType.pdf:
+						ReportInfo ri = await GetReportInfo(url, id, CreateParamsFromQueryString());
+						await ShowPdf(ri, Rep);
+						break;
+				}
+			} 
+			catch (Exception ex)
+			{
+				Response.ContentType = "text/html";
+				Response.ContentEncoding = Encoding.UTF8;
+				if (ex.InnerException != null)
+					ex = ex.InnerException;
+				Response.Write(ex.Message);
+			}
+		}
 
+		async Task ShowPdf(ReportInfo ri, String repName)
+		{
+			Response.ContentType = MimeTypes.Application.Pdf;
+
+			using (var ms = PdfReportHelper.Build(ri.ReportPath, ri.DataModel.Root))
+			{
+				await ms.CopyToAsync(Response.OutputStream);
+			}
+		}
+
+		void ShowStimulsoft(RequestReport rep, String repName)
+		{ 
+			ReportHelper.SetupLicense();
+			try
+			{
 				rep.CheckPermissions(_baseController.UserStateManager.GetUserPermissions(), _baseController.Host.IsDebugConfiguration);
 
 				MvcHtmlString result = null;
-				using (var pr = Profiler.CurrentRequest.Start(ProfileAction.Report, $"render: {Rep}"))
+				using (var pr = Profiler.CurrentRequest.Start(ProfileAction.Report, $"render: {repName}"))
 				{
-					result  = _reportHelper.ShowViewer(this);
+					result  = ReportHelper.ShowViewer(this);
 				}
 
 				var sb = new StringBuilder(ResourceHelper.StiReportHtml);
 				sb.Replace("$(StiReport)", result.ToHtmlString());
 				sb.Replace("$(Lang)", _baseController.CurrentLang);
-				sb.Replace("$(Title)", _baseController.Localize(rep.name ?? Rep)); 
+				sb.Replace("$(Title)", _baseController.Localize(rep.name ?? repName)); 
 
 				Response.Output.Write(sb.ToString());
 			}
@@ -109,7 +166,7 @@ namespace A2v10.Web.Mvc.Controllers
 			};
 			if (_baseController.Host.IsMultiCompany)
 				rc.CompanyId = CompanyId;
-			return await _reportHelper.GetReportInfo(rc, url, id, prms);
+			return await _reportInfo.GetReportInfo(rc, url, id, prms);
 		}
 
 		async Task<ReportInfo> GetReportInfoDesktop(DesktopReport dr, String url, ExpandoObject prms)
@@ -121,7 +178,7 @@ namespace A2v10.Web.Mvc.Controllers
 			};
 			if (_baseController.Host.IsMultiCompany)
 				rc.CompanyId = dr.CompanyId;
-			return await _reportHelper.GetReportInfo(rc, url, dr.Id, prms);
+			return await _reportInfo.GetReportInfo(rc, url, dr.Id, prms);
 		}
 
 		ExpandoObject CreateParamsFromQueryString()
@@ -139,7 +196,6 @@ namespace A2v10.Web.Mvc.Controllers
 		public async Task ExportDesktop(DesktopReport rep, HttpResponseBase response)
 		{
 			// TODO: query string ???
-			_reportHelper.SetupLicense();
 			try
 			{
 				using (var rr = Profiler.CurrentRequest.Start(ProfileAction.Report, $"export: {rep.Report}"))
@@ -150,7 +206,8 @@ namespace A2v10.Web.Mvc.Controllers
 					switch (ri.Type)
 					{
 						case RequestReportType.stimulsoft:
-							err = await _reportHelper.ExportStiReportStreamAsync(ri, rep.Format, response.OutputStream);
+							ReportHelper.SetupLicense();
+							err = await ReportHelper.ExportStiReportStreamAsync(ri, rep.Format, response.OutputStream);
 							break;
 						case RequestReportType.xml:
 							throw new NotImplementedException("ExportDesktop. RequestReportType.xml");
@@ -186,7 +243,6 @@ namespace A2v10.Web.Mvc.Controllers
 		[OutputCache(Duration = 0)]
 		public async Task<ActionResult> Export(String Base, String Rep, String id, String Format)
 		{
-			_reportHelper.SetupLicense();
 			try
 			{
 				using (var rr = Profiler.CurrentRequest.Start(ProfileAction.Report, $"export: {Rep}"))
@@ -197,7 +253,10 @@ namespace A2v10.Web.Mvc.Controllers
 					switch (ri.Type)
 					{
 						case RequestReportType.stimulsoft:
-							return _reportHelper.ExportStiReport(ri, Format, saveFile: true);
+							ReportHelper.SetupLicense();
+							return ReportHelper.ExportStiReport(ri, Format, saveFile: true);
+						case RequestReportType.pdf:
+							return ExportPdfReport(ri, saveFile: true);
 						case RequestReportType.xml:
 							return ExportXmlReport(ri);
 						case RequestReportType.json:
@@ -221,7 +280,6 @@ namespace A2v10.Web.Mvc.Controllers
 		[OutputCache(Duration = 0)]
 		public async Task<ActionResult> Print(String Base, String Rep, String id, String Format)
 		{
-			_reportHelper.SetupLicense();
 			try
 			{
 				var url = $"/_report/{Base.RemoveHeadSlash()}/{Rep}/{id}";
@@ -230,7 +288,10 @@ namespace A2v10.Web.Mvc.Controllers
 				switch (ri.Type)
 				{
 					case RequestReportType.stimulsoft:
-						return _reportHelper.ExportStiReport(ri, Format, saveFile: false);
+						ReportHelper.SetupLicense();
+						return ReportHelper.ExportStiReport(ri, Format, saveFile: false);
+					case RequestReportType.pdf:
+						return ExportPdfReport(ri, saveFile: false);
 					default:
 						throw new NotImplementedException("ReportController.Print. ri.Type");
 				}
@@ -246,10 +307,30 @@ namespace A2v10.Web.Mvc.Controllers
 			return new EmptyResult();
 		}
 
+		ActionResult ExportPdfReport(ReportInfo ri, Boolean saveFile)
+		{
+			if (saveFile) {
+				var cdh = new ContentDispositionHeaderValue("attachment")
+				{
+					FileNameStar = _baseController.Localize(ri.Name) + ".pdf"
+				};
+				Response.Headers.Add("Content-Disposition", cdh.ToString());
+			}
+			var stream = PdfReportHelper.Build(ri.ReportPath, ri.DataModel.Root);
+			return new FileStreamResult(stream, MimeTypes.Application.Pdf);
+		}
+
 		ActionResult ExportJsonReport(ReportInfo ri)
 		{
-			String json = JsonConvert.SerializeObject(ri.DataModel.Root, Formatting.Indented);
-			return Content(json, "application/json", Encoding.UTF8);
+			String json = JsonConvert.SerializeObject(ri.DataModel.Root, Formatting.Indented,
+				new JsonSerializerSettings()
+				{
+					NullValueHandling = NullValueHandling.Ignore,
+				});
+			if (!String.IsNullOrEmpty(ri.Name))
+				return File(Encoding.UTF8.GetBytes(json), MimeTypes.Application.Json, $"{ri.Name}.json");
+			else
+				return Content(json, "application/json", Encoding.UTF8);
 		}
 
 		ActionResult ExportXmlReport(ReportInfo ri)
@@ -277,7 +358,7 @@ namespace A2v10.Web.Mvc.Controllers
 		{
 			try
 			{
-				var vrp = _reportHelper.GetViewerRequestParams();
+				var vrp = ReportHelper.GetViewerRequestParams();
 				var Rep = vrp.Param("Rep");
 				var Base = vrp.Param("Base");
 				var id = vrp.Route("Id");
@@ -295,7 +376,7 @@ namespace A2v10.Web.Mvc.Controllers
 				var path = ri.ReportPath;
 				using (var stream = ri.GetStream(_baseController.Host.ApplicationReader))
 				{
-					return _reportHelper.CreateReportResult(stream, ri);
+					return ReportHelper.CreateReportResult(stream, ri);
 				}
 			}
 			catch (Exception ex)
@@ -310,22 +391,22 @@ namespace A2v10.Web.Mvc.Controllers
 
 		public ActionResult ViewerEvent()
 		{
-			return _reportHelper.ViewerEvent();
+			return ReportHelper.ViewerEvent();
 		}
 
 		public ActionResult PrintReport()
 		{
-			return _reportHelper.PrintReport();
+			return ReportHelper.PrintReport();
 		}
 
 		public ActionResult ExportReport()
 		{
-			return _reportHelper.ExportReport();
+			return ReportHelper.ExportReport();
 		}
 
 		public ActionResult Interaction()
 		{
-			return _reportHelper.Interaction();
+			return ReportHelper.Interaction();
 		}
 
 		#region IControllerTenant

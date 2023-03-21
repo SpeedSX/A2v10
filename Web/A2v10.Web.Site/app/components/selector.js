@@ -1,9 +1,7 @@
-﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2023 Alex Kukhtin. All rights reserved.
 
-/*20210127-7744*/
+/*20230217-7921*/
 // components/selector.js
-
-/*TODO*/
 
 (function selector_component() {
 	const popup = require('std:popup');
@@ -25,10 +23,10 @@
 		<div v-if="isCombo" class="selector-combo" @click.stop.prevent="open"><span tabindex="-1" class="select-text" v-text="valueText" @keydown="keyDown" ref="xcombo"/></div>
 		<input v-focus v-model="query" :class="inputClass" :placeholder="placeholder" v-else
 			@input="debouncedUpdate" @blur.stop="blur" @keydown="keyDown" @keyup="keyUp" ref="input" 
-			:disabled="disabled" @click="clickInput($event)"/>
+			:disabled="disabled" @click="clickInput($event)" :tabindex="tabIndex"/>
 		<slot></slot>
 		<a class="selector-open" href="" @click.stop.prevent="open" v-if="caret"><span class="caret"></span></a>
-		<a class="selector-clear" href="" @click.stop.prevent="clear" v-if="clearVisible">&#x2715</a>
+		<a class="selector-clear" href="" @click.stop.prevent="clear" v-if="clearVisible" tabindex="-1">&#x2715</a>
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
 		<div class="selector-pane" v-if="isOpen" ref="pane" :class="paneClass">
 			<div class="selector-body" :style="bodyStyle">
@@ -69,7 +67,9 @@
 			placement: String,
 			caret: Boolean,
 			hasClear: Boolean,
-			mode: String
+			mode: String,
+			fetchCommand: String,
+			fetchCommandData: Object
 		},
 		data() {
 			return {
@@ -103,7 +103,10 @@
 			clearVisible() {
 				if (!this.hasClear) return false;
 				let to = this.item[this.prop];
-				return to && utils.isDefined(to) && !to.$isEmpty;
+				if (!to) return false;
+				if (utils.isDefined(to.$isEmpty))
+					return !to.$isEmpty;
+				return !utils.isPlainObjectEmpty(to);
 			},
 			hasText() { return !!this.textProp; },
 			newText() {
@@ -300,6 +303,8 @@
 				let obj = this.item[this.prop];
 				if (obj.$empty)
 					obj.$empty();
+				else if (utils.isObjectExact(obj))
+					utils.clearObject(obj);
 			},
 			scrollIntoView() {
 				this.$nextTick(() => {
@@ -362,13 +367,22 @@
 				}
 			},
 			fetchData(text, all) {
-				if (!this.fetch)
-					console.error('Selector. Fetch not defined');
 				all = all || false;
 				let elem = this.item[this.prop];
-				if (elem && !('$vm' in elem))
-					elem.$vm = this.$root; // plain object hack
-				return this.fetch.call(this.item.$root, elem, text, all);
+				if (elem && !('$vm' in elem)) {
+					// plain object hack
+					Object.defineProperty(elem, '$vm', { value: this.$root, writable: false, enumerable: false });
+				}
+				if (this.fetch) {
+					return this.fetch.call(this.item.$root, elem, text, all);
+				} else if (this.fetchCommand) {
+					if (!text) return [];
+					let fc = this.fetchCommand.split('/');
+					let action = fc.pop();
+					let invokeArg = Object.assign({}, { Text: text }, this.fetchCommandData);
+					return elem.$vm.$invoke(action, invokeArg, fc.join('/'));
+				}
+				console.error('Selector. Fetch or Delegate not defined');
 			},
 			doNew() {
 				this.isOpen = false;

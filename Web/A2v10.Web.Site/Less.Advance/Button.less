@@ -35,6 +35,18 @@
 		outline-style: none;
 		transition: box-shadow linear .2s;
 	}
+
+	.btn-badge {
+		position: absolute;
+		top: 3px;
+		right: 3px;
+		font-size: 9px;
+		background-color: coral;
+		border-radius: 50%;
+		padding: 1px;
+		min-width: 14px;
+		min-height: 14px;
+	}
 }
 
 .btn.lg {
@@ -55,6 +67,7 @@
 
 .btn.xs {
 	font-size: 0.85rem;
+	padding:.3rem .4rem;
 
 	.ico {
 		font-size: .85rem;
@@ -96,7 +109,7 @@
 	//border: 1px solid darken(@color, 12%);
 	color: white;
 
-	&:active {
+	&:not([disabled]):active {
 		background-color: darken(@color, 8%) !important;
 	}
 
@@ -137,6 +150,18 @@
 	min-height:2.6em;
 }
 
+.btn-toolbar {
+	background-color: transparent;
+
+	&:hover {
+		background-color: @toolbar-hover;
+	}
+
+	&:not([disabled]):active {
+		background-color: @toolbar-active;
+	}
+}
+
 .btn-outline {
 	background-color: transparent;
 	border: 1px solid var(--neutralBk);
@@ -146,7 +171,7 @@
 		background-color: var(--neutralBk);
 	}
 
-	&:active {
+	&:not([disabled]):active {
 		background-color: var(--neutralBkDark);
 		box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2) inset;
 		border-color: var(--neutralBkDark);

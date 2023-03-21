@@ -29,7 +29,7 @@ foreach ($elem in $SourceStyles) {
 Copy-Item "..\Web\A2v10.Web.Site\css\fonts\*.*" -Destination ".\css\fonts";
 $i += 1;
 
-Copy-Item "..\Web\A2v10.Web.Site\localization\*.*" -Destination ".\localization";
+Copy-Item "..\Web\A2v10.Web.Site\localization\default.*" -Destination ".\localization";
 $i += 1;
 
 foreach ($elem in $SourceSql) {
@@ -43,7 +43,7 @@ $i += 1;
 
 Write-Host "Successfully copied client files.";
 
-Remove-item -Path "d:\NuGet.Local\*.*";
+Remove-item -Path "C:\A2v10_Net48\Nuget.local\*.*";
 
 # nuget.exe pack -OutputDirectory "d:\NuGet.Local" -Prop Configuration=Release;
 

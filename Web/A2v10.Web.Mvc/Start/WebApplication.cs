@@ -1,9 +1,10 @@
-﻿// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
 
 using System.Web.Mvc;
 using System.Web.Routing;
 
 using A2v10.Web.Base.Start;
+using A2v10.Web.Mvc.Quartz;
 
 namespace A2v10.Web.Mvc.Start
 {
@@ -15,6 +16,7 @@ namespace A2v10.Web.Mvc.Start
 			FilterConfig.RegisterGlobalFilters(GlobalFilters.Filters);
 			RouteConfig.RegisterRoutes(RouteTable.Routes);
 			ViewEnginesConfig.SetupViewEngines(ViewEngines.Engines);
+			Scheduler.Start();
 		}
 	}
 }

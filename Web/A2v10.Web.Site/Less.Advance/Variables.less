@@ -9,45 +9,43 @@
 
 @border-light: var(--neutralLight);
 @text-color:var(--text);
+@background-color: var(--background);
 @text-color-opacity40:rgba(2,2,2,0.4);
 @gray-text-color: #ccc;
 @dark-gray-text-color:#999;
 
-@default-brd-color: #ddd; //#bdc5d8;
-@light-brd-color: #e1dfdd;
+@default-brd-color: var(--neutralBkDarker); //#bdc5d8;
+@light-brd-color: var(--neutralBkDark); // #e5e4e3
 @light-brd-color2: #ddd;
 
 @icon-color: var(--neutralSecondary);
 @light-gray-color:#ddd;
 @light-gray-bg-color: #e9e9e9;
 @whitesmoke-gray-bg-color: var(--neutralBkLight);
+@hover-bg-light: var(--neutralBkLight);
 @light-yellow-bg-color:#fffff0;
 
 @page-wrapper-bg-color:#e3e3e3;
 
 @icon-folder: #dcb67a;
-
 //@brand-bk-color: #4d6082;
-@brand-bk-color: ~"var(--themeDark)";
+@brand-bk-color: ~ "var(--themeDark)";
 
 @dark-bk-color: #8591a2;
 @menu-bk-color: #9ab3e0;
 @a2v10-brand-color:#dd2c5e;
 
-@brand-hover-color: ~"var(--themeDarker)"; //lighten(@brand-bk-color, 15%);
-
+@brand-hover-color: ~ "var(--themeDarker)"; //lighten(@brand-bk-color, 15%);
 @hover-bg-color: var(--hoverBk);
 @active-bg-color: var(--activeBk);
 @hover-bg-color-light: var(--hoverBkLight);
 @active-bg-color-light: var(--activeBkLight);
 
-@alter-bg-color: rgba(208, 208, 208, .15);
-
+@alter-bg-color: rgba(224, 224, 224, .1);
 //@link-color: #26a3c6; // var(--themeDark);//#208cf8; //#57a8fa;
 //@link-hover-color: darken(@link-color, 15%);
-@link-hover-color: @link-color;
-@link-hover-color-dark: @link-color;//~"var(--themeDarker)"; //darken(@link-color, 10%);
-
+@link-hover-color: var(--linkDark);
+@link-hover-color-dark: @link-hover-color; //~"var(--themeDarker)"; //darken(@link-color, 10%);
 @warning-base-color: #ffb74d;
 @danger-base-color: #da533f;
 @success-base-color: #5db750;
@@ -72,8 +70,7 @@
 @placeholder-color: @gray-text-color;
 @label-color: @dark-gray-text-color;
 
-@control-focus-color:  @link-color; //#208cf8; // TODO: variable?
-
+@control-focus-color: @link-color; //#208cf8; // TODO: variable?
 @header-text-color: @dark-gray-text-color;
 
 @disabled-bg-color: #fafafa;
@@ -107,12 +104,16 @@
 @side-bar-compact-scroll-bg-color: #8196bb;
 /* data grid */
 @data-grid-border-color:@default-brd-color;
-@sort-bg-color: rgba(238,238,238, 0.3);
+@sort-bg-color: rgba(238,238,238, 0.45);
 /* toolbar */
 @tb-active-bg-color: #fff29d;
 @tb-hover-brd-color: #e5c365;
+@toolbar-bg-color: var(--neutralBk);
+@toolbar-hover: var(--neutralBkDark);
+@toolbar-active: var(--neutralBkDarker);
+@toolbar-txt-color: @text-color;
 /* table */
-@table-brd-color: #ddd; // #e5e8eb;
+@table-brd-color: @default-brd-color;
 @table-hdr-brd-color: #ddd; //#cbcdda;
 @table-cell-padding-v: 4px;
 @table-cell-padding-h: 6px;
@@ -142,8 +143,7 @@
 @hover-index: auto;
 */
 @side-bar-collapse-index:20;
-@menu-navbar-index:25;
-
+@menu-navbar-index:1052; /* @modal-wrapper-index + 2 */
 @modal-stack-index:100;
 @debug-index: 110;
 
@@ -155,7 +155,10 @@
 @toastr-z-index:1080;
 @wc-z-index:1090;
 @sticky-index:7;
+@toolbar-z-index:8;
+@pane-z-index:78;
 
+@cyan-bg: #edfcfe;
 
 @danger-txt-color: #a94442;
 @danger-bg-color: #f2dede;
@@ -164,12 +167,12 @@
 
 @danger-btn-color: lighten(@danger-txt-color, 5%);
 
-@pane-def-txt: #383838;
-@pane-def-bg: #e2e3e5;
-@pane-def-brd: #d6d8db;
+@pane-def-txt: #999;
+@pane-def-bg: var(--neutralBk);
+@pane-def-brd: var(--neutralBkDark);
 
 @pane-cyan-txt: #31708f;
-@pane-cyan-bg: #d9edf7;
+@pane-cyan-bg: @cyan-bg;
 @pane-cyan-brd: #bcdff1;
 
 @pane-green-txt: #155724;

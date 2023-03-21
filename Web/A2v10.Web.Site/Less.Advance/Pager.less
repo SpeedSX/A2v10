@@ -1,5 +1,7 @@
 ﻿
-@btn-bg-color: white;
+@import "Variables.less";
+
+@btn-bg-color: @background-color;
 @btn-dis-color: @whitesmoke-gray-bg-color;
 @btn-width: 2em;
 
@@ -8,7 +10,6 @@
 	display: flex;
 	align-items: center;
 	border-top: 1px solid @border-light;
-	padding: .5em;
 
 	button {
 		padding: 3px;
@@ -54,7 +55,7 @@
 
 	> .a2-pager-title {
 		font-size: .9em;
-		color: #777;
+		color: @text-color;
 		white-space: nowrap;
 		padding-left: .5em;
 	}

@@ -1,5 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\..\packages\Microsoft.TypeScript.MSBuild.5.0.2\build\Microsoft.TypeScript.MSBuild.props" Condition="Exists('..\..\packages\Microsoft.TypeScript.MSBuild.5.0.2\build\Microsoft.TypeScript.MSBuild.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -25,7 +26,6 @@
     <Use64BitIISExpress />
     <IISExpressSSLPort />
     <TargetFrameworkProfile />
-    <TypeScriptToolsVersion>Latest</TypeScriptToolsVersion>
     <TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -60,39 +60,50 @@
     <TypeScriptSourceRoot />
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Microsoft.Web.Infrastructure, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.Web.Infrastructure.2.0.0\lib\net40\Microsoft.Web.Infrastructure.dll</HintPath>
+    <Reference Include="Microsoft.Web.Infrastructure, Version=2.0.1.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Web.Infrastructure.2.0.1\lib\net40\Microsoft.Web.Infrastructure.dll</HintPath>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
+    </Reference>
     <Reference Include="System.Net.Http" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
     <Reference Include="System.Web" />
     <Reference Include="System.Web.ApplicationServices" />
-    <Reference Include="System.Web.DynamicData" />
     <Reference Include="System.Web.Entity" />
     <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Web.Helpers, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.8\lib\net45\System.Web.Helpers.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.9\lib\net45\System.Web.Helpers.dll</HintPath>
     </Reference>
-    <Reference Include="System.Web.Mvc, Version=5.2.8.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.AspNet.Mvc.5.2.8\lib\net45\System.Web.Mvc.dll</HintPath>
+    <Reference Include="System.Web.Mvc, Version=5.2.9.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.AspNet.Mvc.5.2.9\lib\net45\System.Web.Mvc.dll</HintPath>
     </Reference>
     <Reference Include="System.Web.Razor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.AspNet.Razor.3.2.8\lib\net45\System.Web.Razor.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.AspNet.Razor.3.2.9\lib\net45\System.Web.Razor.dll</HintPath>
     </Reference>
     <Reference Include="System.Web.WebPages, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.8\lib\net45\System.Web.WebPages.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.9\lib\net45\System.Web.WebPages.dll</HintPath>
     </Reference>
     <Reference Include="System.Web.WebPages.Deployment, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.8\lib\net45\System.Web.WebPages.Deployment.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.9\lib\net45\System.Web.WebPages.Deployment.dll</HintPath>
     </Reference>
     <Reference Include="System.Web.WebPages.Razor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.8\lib\net45\System.Web.WebPages.Razor.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.9\lib\net45\System.Web.WebPages.Razor.dll</HintPath>
     </Reference>
-    <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="_Start\Startup.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="app\app.js" />
@@ -102,6 +113,10 @@
     <Content Include="app\bootstrap\shell.js" />
     <Content Include="app\components\calendar.js" />
     <Content Include="app\components\accelcommand.js" />
+    <Content Include="app\components\colorpicker.js" />
+    <Content Include="app\components\dashboard.js" />
+    <Content Include="app\components\tagscontrol.js" />
+    <Content Include="app\components\treegrid.js" />
     <Content Include="app\components\inlinedialog.js" />
     <Content Include="app\components\spansum.js" />
     <Content Include="app\components\timepicker.js" />
@@ -118,10 +133,12 @@
     <Content Include="app\controllers\tests.js" />
     <Content Include="app\directives\pageorient.js" />
     <Content Include="app\localization\locale-de.js" />
+    <Content Include="app\localization\locale-pl.js" />
     <Content Include="app\mobile\shell.js" />
     <Content Include="app\server\app.js" />
     <Content Include="app\server\locale.js" />
     <Content Include="app\server\platform.js" />
+    <Content Include="app\services\barcode.js" />
     <Content Include="css\blue.colorscheme.min.css">
       <DependentUpon>blue.colorscheme.css</DependentUpon>
     </Content>
@@ -130,7 +147,12 @@
     <Content Include="css\bpmn\diagram-js.css" />
     <Content Include="css\bpmn\editor.css" />
     <Content Include="css\bpmn\font\bpmn.svg" />
+    <Content Include="Less.Advance\checkbox_radio.svg" />
+    <Content Include="Less.Advance\checkbox_indeterminate.svg" />
+    <Content Include="Less.Advance\checkbox_checked.svg" />
+    <Content Include="Localization\default.pl.txt" />
     <Content Include="openidconnect.txt" />
+    <Content Include="scripts\locale-pl.min.js" />
     <Content Include="scripts\server\validate.js" />
     <Content Include="app\services\eusign.js" />
     <Content Include="app\services\html.js" />
@@ -247,6 +269,21 @@
     <Content Include="TestMobile\testmobile.js" />
     <Content Include="TestPages\d3hierarchy.html" />
     <Content Include="TestPages\d3hierarchy.js" />
+    <Content Include="TestPages\d3line.js" />
+    <Content Include="TestPages\colorpicker.js" />
+    <Content Include="TestPages\colorpicker.html" />
+    <Content Include="TestPages\barcode.html" />
+    <Content Include="TestPages\barcode.js" />
+    <Content Include="TestPages\pivot.js" />
+    <Content Include="TestPages\pivot.html" />
+    <Content Include="TestPages\tagscontrol.js" />
+    <Content Include="TestPages\tagscontrol.html" />
+    <Content Include="TestPages\kanban.js" />
+    <Content Include="TestPages\kanban.html" />
+    <Content Include="TestPages\treegrid.js" />
+    <Content Include="TestPages\treegrid.html" />
+    <Content Include="TestPages\dashboard2.js" />
+    <Content Include="TestPages\dashboard.html" />
     <Content Include="TestPages\nativeHost.html" />
     <Content Include="TestPages\JasmineTests.html" />
     <Content Include="TestPages\slot.html" />
@@ -337,7 +374,7 @@
     <Content Include="css\bpmn\font\bpmn.woff" />
     <Content Include="css\bpmn\font\bpmn.woff2" />
     <Content Include="Less.Advance\_Blue.colorscheme.less" />
-    <None Include="Less.Advance\_Default.colorscheme.less" />
+    <Content Include="Less.Advance\_Default.colorscheme.less" />
     <Content Include="css\blue.colorscheme.css" />
     <Content Include="Less.Advance\_ColorSchemes.less" />
     <Content Include="Less.Advance\Colors.less" />
@@ -349,6 +386,14 @@
     <Content Include="package.json" />
     <Content Include="libman.json" />
     <Content Include="manifest.json" />
+    <Content Include="compilerconfig.json.bindings" />
+    <Content Include="Less.Advance\TreeGrid.less" />
+    <Content Include="Less\TreeGrid.less" />
+    <Content Include="Less.Advance\Dashboard.less" />
+    <Content Include="package-lock.json" />
+    <Content Include="Less.Advance\ColorPicker.less" />
+    <Content Include="Less\ColorPicker.less" />
+    <Content Include="Less.Advance\TagsControl.less" />
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>
@@ -437,7 +482,7 @@
     <Content Include="TestPages\collectionview.js" />
     <Content Include="TestPages\collectionview.txt" />
     <Content Include="TestPages\d3line.html" />
-    <Content Include="TestPages\d3line.js" />
+    <Content Include="TestPages\dashboard.js" />
     <Content Include="TestPages\datepicker.html" />
     <Content Include="TestPages\dropdown.html" />
     <Content Include="TestPages\formcontrol2.html" />
@@ -543,12 +588,19 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include=".well-known\" />
-    <Folder Include="app.ts\" />
     <Folder Include="app\site.ts\" />
     <Folder Include="scripts\bpmn\" />
     <Folder Include="scripts\eusign\" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\A2v10.Pdf.Report\A2v10.Pdf.Report\A2v10.Pdf.Report.csproj">
+      <Project>{8c3d6471-882a-4628-a619-2922c990cdf9}</Project>
+      <Name>A2v10.Pdf.Report</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\A2v10.Pdf.Report\A2v10.Xaml.Report\A2v10.Xaml.Report.csproj">
+      <Project>{982b4b91-2299-4c8d-bd6a-50a95f663dfd}</Project>
+      <Name>A2v10.Xaml.Report</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\Shared\A2v10.Xaml.Bootstrap\A2v10.Xaml.Bootstrap.csproj">
       <Project>{7485b057-57b2-4cd2-8514-dc7d0184467f}</Project>
       <Name>A2v10.Xaml.Bootstrap</Name>
@@ -630,7 +682,6 @@
   </PropertyGroup>
   <PropertyGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
-  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TypeScript\Microsoft.TypeScript.targets" Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TypeScript\Microsoft.TypeScript.targets')" />
   <Import Project="$(VSToolsPath)\WebApplications\Microsoft.WebApplication.targets" Condition="'$(VSToolsPath)' != ''" />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications\Microsoft.WebApplication.targets" Condition="false" />
   <Target Name="MvcBuildViews" AfterTargets="AfterBuild" Condition="'$(MvcBuildViews)'=='true'">
@@ -651,7 +702,10 @@
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('..\..\packages\BuildBundlerMinifier.3.2.449\build\BuildBundlerMinifier.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\BuildBundlerMinifier.3.2.449\build\BuildBundlerMinifier.targets'))" />
+    <Error Condition="!Exists('..\..\packages\Microsoft.TypeScript.MSBuild.5.0.2\build\Microsoft.TypeScript.MSBuild.props')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Microsoft.TypeScript.MSBuild.5.0.2\build\Microsoft.TypeScript.MSBuild.props'))" />
+    <Error Condition="!Exists('..\..\packages\Microsoft.TypeScript.MSBuild.5.0.2\build\Microsoft.TypeScript.MSBuild.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Microsoft.TypeScript.MSBuild.5.0.2\build\Microsoft.TypeScript.MSBuild.targets'))" />
   </Target>
+  <Import Project="..\..\packages\Microsoft.TypeScript.MSBuild.5.0.2\build\Microsoft.TypeScript.MSBuild.targets" Condition="Exists('..\..\packages\Microsoft.TypeScript.MSBuild.5.0.2\build\Microsoft.TypeScript.MSBuild.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
-/*20210131-7744*/
+/*20220627-7853*/
 // components/treeview.js
 
 (function () {
@@ -43,6 +43,11 @@
 			getHref: Function,
 			doubleclick: Function
 		},
+		data() { 
+			return {
+				_toggling: false
+			};
+		},
 		methods: {
 			isFolderSelect(item) {
 				let fs = this.options.folderSelect;
@@ -74,10 +79,14 @@
 				eventBus.$emit('closeAllPopups');
 				if (!this.isFolder)
 					return;
+				this._toggling = true;
 				this.expandItem(!this.item.$expanded);
 				if (this.expand) {
 					this.expand(this.item, this.options.subitems);
 				}
+				this.$nextTick(() => {
+					this._toggling = false;
+				})
 			},
 			expandItem(val) {
 				platform.set(this.item, '$expanded', val);
@@ -153,7 +162,9 @@
 			}
 		},
 		updated(x) {
-			// close expanded when reloaded
+			// open expanded when reloaded
+			if (!this._toggling && this.options.initialExpand)
+				this.item.$expanded = true;
 			if (this.item.$expanded) {
 				if (this.item.$hasChildren) {
 					let arr = this.item[this.options.subitems];
@@ -162,6 +173,10 @@
 					}
 				}
 			}
+		},
+		created() {
+			if (this.options.initialExpand)
+			platform.set(this.item, '$expanded', true);
 		}
 	};
 

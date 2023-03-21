@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
 "use strict";
 
@@ -78,8 +78,10 @@
 					.then(function (response) {
 						that.processing = false;
 						let result = response.Status;
-						if (result === "Success")
+						if (result === 'Success')
 							that.navigate();
+						else if (result === 'SetPassword')
+							that.changePassword(response.Token);
 						else if (result === 'Failure')
 							that.failure(that.locale.$InvalidLoginError);
 						else if (result === 'LockedOut')
@@ -90,6 +92,8 @@
 						}
 						else if (result === 'AntiForgery')
 							that.failure(that.locale.$AntiForgery);
+						else if (result.startsWith("UI:"))
+							that.failure(result.substring(3));
 						else
 							alert(result);
 					})
@@ -120,18 +124,21 @@
 						alert(error);
 					});
 			},
-			onLoginEnter: function() {
+			onLoginEnter() {
 				this.$refs.pwd.focus();
 			},
-			onPwdEnter: function(ev) {
+			onPwdEnter(ev) {
 				this.submit();
 			},
-			navigate: function() {
+			navigate() {
 				let qs = parseQueryString(window.location.search);
 				let url = qs.ReturnUrl || '/';
 				window.location.assign(url);
 			},
-			failure: function(msg) {
+			changePassword(token) {
+				window.location.assign(`/account/initpassword?token=${token}`);
+			},
+			failure(msg) {
 				this.password = '';
 				this.submitted = false;
 				this.serverError = msg;

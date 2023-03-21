@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
 using System;
 using System.Windows.Markup;
@@ -40,7 +40,13 @@ namespace A2v10.Xaml
 				{
 					if (Taskpad is Taskpad tp && tp.Width != null)
 					{
-						tag.MergeStyle("grid-template-columns", $"1fr {tp.Width.Value}");
+						if (tp.Position == TaskpadPosition.Left)
+						{
+							tag.AddCssClass("taskpad-left");
+							tag.MergeStyle("grid-template-columns", $"{tp.Width.Value} 1fr");
+						}
+						else
+							tag.MergeStyle("grid-template-columns", $"1fr {tp.Width.Value}");
 					}
 				}
 			}
@@ -151,13 +157,13 @@ namespace A2v10.Xaml
 			CollectionView?.SetParent(this);
 		}
 
-		public override void OnSetStyles()
+		public override void OnSetStyles(RootContainer root)
 		{
-			base.OnSetStyles();
-			Toolbar?.OnSetStyles();
-			Taskpad?.OnSetStyles();
-			Pager?.OnSetStyles();
-			CollectionView?.OnSetStyles();
+			base.OnSetStyles(root);
+			Toolbar?.OnSetStyles(root);
+			Taskpad?.OnSetStyles(root);
+			Pager?.OnSetStyles(root);
+			CollectionView?.OnSetStyles(root);
 		}
 
 		public override void OnDispose()
@@ -171,16 +177,16 @@ namespace A2v10.Xaml
 
 		protected override T FindInside<T>()
 		{
-			if (this is T)
-				return this as T;
-			else if (Toolbar is T)
-				return Toolbar as T;
-			else if (CollectionView is T)
-				return CollectionView as T;
-			else if (Taskpad is T)
-				return Taskpad as T;
-			else if (Pager is T)
-				return Pager as T;
+			if (this is T elemT)
+				return elemT;
+			else if (Toolbar is T toolbar)
+				return toolbar;
+			else if (CollectionView is T collectionView)
+				return collectionView;
+			else if (Taskpad is T taskpad)
+				return taskpad;
+			else if (Pager is T pager)
+				return pager;
 			return null;
 		}
 	}

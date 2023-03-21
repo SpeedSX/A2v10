@@ -10,6 +10,15 @@ namespace A2v10.Xaml
 		Center
 	}
 
+	public enum Overflow
+	{
+		Visible,
+		Hidden,
+		Auto,
+		True = Visible,
+		False = Hidden,
+	}
+
 	public enum AlignItems
 	{
 		Default,
@@ -242,6 +251,7 @@ namespace A2v10.Xaml
 		Bank,
 		BankAccount,
 		BankUah,
+		Barcode,
 		Bell,
 		BrandExcel,
 		Calc,
@@ -308,6 +318,7 @@ namespace A2v10.Xaml
 		Ellipsis,
 		EllipsisBottom,
 		EllipsisVertical,
+		Energy,
 		Error,
 		ErrorOutline,
 		Exit,
@@ -317,6 +328,7 @@ namespace A2v10.Xaml
 		Eye,
 		EyeDisabled,
 		EyeDisabledRed,
+		Factory,
 		Failure,
 		FailureRed,
 		FailureOutline,
@@ -328,6 +340,7 @@ namespace A2v10.Xaml
 		Flag2,
 		File,
 		FileContent,
+		FileDownloadPdf,
 		FileError,
 		FileFailure,
 		FileImage,
@@ -371,6 +384,8 @@ namespace A2v10.Xaml
 		Minus,
 		MinusBox,
 		MinusCircle,
+		ModeDark,
+		ModeLight,
 		Package,
 		PackageOutline,
 		PaneLeft,
@@ -393,6 +408,7 @@ namespace A2v10.Xaml
 		Power,
 		Print,
 		Process,
+		Qrcode,
 		Query,
 		Queue,
 		Refresh,
@@ -443,12 +459,14 @@ namespace A2v10.Xaml
 		UnlockOutline,
 		Unpin,
 		UnpinOutline,
+		Upgrade,
 		Upload,
 		Upload2,
 		User,
 		UserImage,
 		UserMinus,
 		UserPlus,
+		UserRole,
 		Users,
 		Waiting,
 		WaitingOutline,

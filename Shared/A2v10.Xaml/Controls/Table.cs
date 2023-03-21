@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
 using System;
 using System.Windows.Markup;
@@ -98,7 +98,7 @@ namespace A2v10.Xaml
 			if (StickyHeaders)
             {
 				var outTag = new TagBuilder("div", "a2-sticky-container", IsInGrid);
-				MergeAttributes(outTag, context, MergeAttrMode.Visibility);
+				MergeAttributes(outTag, context, MergeAttrMode.Visibility | MergeAttrMode.Margin);
 				if (Height != null)
 					outTag.MergeStyle("height", Height.Value);
 				outTag.RenderStart(context);
@@ -232,20 +232,20 @@ namespace A2v10.Xaml
 					c.SetParent(this);
 		}
 
-		public override void OnSetStyles()
+		public override void OnSetStyles(RootContainer root)
 		{
-			base.OnSetStyles();
+			base.OnSetStyles(root);
 			foreach (var c in Rows)
-				c.OnSetStyles();
+				c.OnSetStyles(root);
 			if (_header != null)
 				foreach (var h in Header)
-					h.OnSetStyles();
+					h.OnSetStyles(root);
 			if (_footer != null)
 				foreach (var f in Footer)
-					f.OnSetStyles();
+					f.OnSetStyles(root);
 			if (_columns != null)
 				foreach (var c in Columns)
-					c.OnSetStyles();
+					c.OnSetStyles(root);
 		}
 
 		public override void OnDispose()

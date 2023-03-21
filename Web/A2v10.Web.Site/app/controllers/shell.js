@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
 
-/*20210713-7795*/
+/*20220912-7888*/
 /* controllers/shell.js */
 
 (function () {
@@ -26,6 +26,7 @@
 				feedbackVisible: false,
 				globalPeriod: null,
 				dataCounter: 0,
+				sidePaneUrl: '',
 				traceEnabled: log.traceEnabled()
 			};
 		},
@@ -44,7 +45,10 @@
 				if (this.userIsExternal)
 					return undefined;
 				return this.doChangePassword;
-			}
+			},
+			sidePaneVisible() {
+				return !!this.sidePaneUrl
+			},
 		},
 		watch: {
 			traceEnabled(val) {
@@ -56,7 +60,10 @@
 				this.$store.commit('navigate', { url: '/app/about' });
 			},
 			appLink(lnk) {
-				this.$store.commit('navigate', { url: lnk.url });
+				if (lnk.url.startsWith("http"))
+					window.open(lnk.url, "_blank");
+				else
+					this.$store.commit('navigate', { url: lnk.url });
 			},
 			navigate(url) {
 				this.$store.commit('navigate', { url: url });
@@ -163,6 +170,17 @@
 				}
 			});
 
+			eventBus.$on('showSidePane', function (url) {
+				if (!url) {
+					me.sidePaneUrl = '';
+				} else {
+					let newurl = '/_page' + url;
+					if (me.sidePaneUrl === newurl)
+						me.sidePaneUrl = '';
+					else
+						me.sidePaneUrl = newurl;
+				}
+			});
 
 			popup.startService();
 

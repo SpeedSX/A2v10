@@ -128,6 +128,12 @@ namespace A2v10.Xaml
 				input.MergeAttribute("data-type", valBind.DataType.ToString());
 			if (!String.IsNullOrEmpty(valBind.Format))
 				input.MergeAttribute("format", valBind.Format);
+			else
+			{
+				var valBindFormat = valBind.GetBinding("Format");
+				if (valBindFormat != null)
+					input.MergeAttribute(":format", valBindFormat.GetPath(context));
+			}
 			var maskBind = valBind.GetBinding("Mask");
 			if (maskBind != null)
 				input.MergeAttribute(":mask", maskBind.GetPathFormat(context));
@@ -179,8 +185,6 @@ namespace A2v10.Xaml
 		protected (String Path, String Prop) SplitToPathProp(String path)
 		{
 			var result = (Path: "", Prop: "");
-			String itemPath = String.Empty;
-			String itemProp = String.Empty;
 			if (String.IsNullOrEmpty(path))
 				return result;
 			Int32 ix = path.LastIndexOf('.');
@@ -189,22 +193,27 @@ namespace A2v10.Xaml
 				result.Prop = path.Substring(ix + 1);
 				result.Path = path.Substring(0, ix);
 			}
+			else
+			{
+				result.Prop = path;
+				result.Path = "$data";
+			}
 			return result;
 		}
 
-		protected void RenderBadge(RenderContext context, String badge)
+		protected void RenderBadge(RenderContext context, String badge, String cssClass = "badge")
 		{
 			var badgeBind = GetBinding("Badge");
 			if (badgeBind != null)
 			{
-				new TagBuilder("span", "badge")
+				new TagBuilder("span", cssClass)
 					.MergeAttribute("v-text", badgeBind.GetPathFormat(context))
 					.MergeAttribute("v-if", badgeBind.GetPathFormat(context))
 					.Render(context);
 			}
 			else if (!String.IsNullOrEmpty(badge))
 			{
-				new TagBuilder("span", "badge")
+				new TagBuilder("span", cssClass)
 					.SetInnerText(context.LocalizeCheckApostrophe(badge))
 					.Render(context);
 			}
@@ -262,12 +271,12 @@ namespace A2v10.Xaml
 			base.OnEndInit();
 		}
 
-		public override void OnSetStyles()
+		public override void OnSetStyles(RootContainer root)
 		{
 			switch (XamlStyle)
 			{
 				case StyleDescriptor sd:
-					sd.Set(this);
+					sd.Set(this, root);
 					break;
 				case Style st:
 					st.Set(this);

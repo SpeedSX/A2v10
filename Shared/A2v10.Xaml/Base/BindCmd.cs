@@ -42,6 +42,7 @@ namespace A2v10.Xaml
 		Report,
 		Export,
 		MailTo,
+		CallPhone,
 		Navigate,
 		NavigateExternal,
 		Download,
@@ -50,7 +51,8 @@ namespace A2v10.Xaml
 		EUSign,
 		ExportTo,
 		File,
-		Print
+		Print,
+		Invoke
 	}
 
 	public enum DialogAction
@@ -117,6 +119,7 @@ namespace A2v10.Xaml
 		public Boolean Export { get; set; }
 		public Boolean Print { get; set; }
 		public Boolean ReloadAfter { get; set; }
+		public Boolean RequeryAfter { get; set; }
 
 		public Confirm Confirm { get; set; }
 		public Toast Toast { get; set; }
@@ -151,6 +154,8 @@ namespace A2v10.Xaml
 					return $"$href({CommandUrl(context)}, {CommandArgument(context)})";
 				case CommandType.MailTo:
 					return $"$mailto({CommandArgument(context)}, {GetData(context)})";
+				case CommandType.CallPhone:
+					return $"$callphone({CommandArgument(context)})";
 				case CommandType.Help:
 					return $"$helpHref({CommandUrl(context)})";
 				case CommandType.NavigateExternal:
@@ -192,7 +197,7 @@ namespace A2v10.Xaml
 					return $"$save({{toast: {GetToast(context)}, options:{GetOptionsValid(context)}}})";
 
 				case CommandType.Clear:
-					return $"{CommandArgument(context)}.$empty()";
+					return $"$clearObject({CommandArgument(context)})";
 
 				case CommandType.Close:
 					if (src != null) {
@@ -232,6 +237,7 @@ namespace A2v10.Xaml
 					return $"$dbRemoveSelected({CommandArgument(context)}, {GetConfirm(context)}, {GetOptions(context)})";
 
 				case CommandType.MailTo:
+				case CommandType.CallPhone:
 					return null;
 
 				case CommandType.Navigate:
@@ -292,6 +298,9 @@ namespace A2v10.Xaml
 						return $"$exec('{GetName()}', {argument}, {GetConfirm(context)}, {GetOptions(context)})";
 					return $"$exec('{GetName()}', {CommandArgument(context, nullable: true)}, {GetConfirm(context)}, {GetOptions(context)})";
 
+				case CommandType.Invoke:
+					return $"$invokeServer({CommandUrl(context)}, {CommandArgument(context)}, {GetConfirm(context)}, {GetOptions(context)})";
+
 				case CommandType.ExecuteSelected:
 					return $"$execSelected('{GetName()}', {CommandArgument(context)}, {GetConfirm(context)})";
 
@@ -350,7 +359,7 @@ namespace A2v10.Xaml
 		String GetOptions(RenderContext context)
 		{
 			if (!SaveRequired && !ValidRequired && !CheckReadOnly && !Export && !Print && !NewWindow 
-				&& !CheckArgument && !ReloadAfter && Permission == Permission.None && String.IsNullOrEmpty(Viewer))
+				&& !CheckArgument && !ReloadAfter && !RequeryAfter && Permission == Permission.None && String.IsNullOrEmpty(Viewer))
 				return nullString;
 			StringBuilder sb = new StringBuilder("{");
 			if (SaveRequired)
@@ -374,6 +383,8 @@ namespace A2v10.Xaml
 				sb.Append("newWindow: true,");
 			if (ReloadAfter)
 				sb.Append("reloadAfter: true,");
+			if (RequeryAfter)
+				sb.Append("requeryAfter: true,");
 			if (!String.IsNullOrEmpty(Viewer))
 				sb.Append($"viewer: '{Viewer.ToLowerInvariant()}',");
 			sb.RemoveTailComma();
@@ -636,10 +647,12 @@ namespace A2v10.Xaml
 				case CommandType.Report:
 				case CommandType.Requery:
 				case CommandType.MailTo:
+				case CommandType.CallPhone:
 				case CommandType.Help:
 				case CommandType.Print:
 				case CommandType.Execute:
 				case CommandType.ExecuteSelected:
+				case CommandType.Invoke:
 					return true;
 			}
 			return false;

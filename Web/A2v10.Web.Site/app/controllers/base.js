@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20220420-7840*/
+/*20230224-7921*/
 // controllers/base.js
 
 (function () {
@@ -139,8 +139,31 @@
 					this.$alert(locale.$PermissionDenied);
 					return;
 				}
+				eventBus.$emit('closeAllPopups');
 				const root = this.$data;
 				return root._exec_(cmd, arg, confirm, opts);
+			},
+
+			async $invokeServer(url, arg, confirm, opts) {
+				if (this.$isReadOnly(opts)) return;
+				if (this.$isLoading) return;
+				eventBus.$emit('closeAllPopups');
+				const root = this.$data;
+				if (confirm)
+					await this.$confirm(confirm);
+				if (opts && opts.saveRequired && this.$isDirty)
+					await this.$save();
+				if (opts && opts.validRequired && root.$invalid) { 
+					this.$alert(locale.$MakeValidFirst);
+					return;
+				}
+				let data = { Id: arg.$id };
+				let cmd = urltools.splitCommand(url);
+				await this.$invoke(cmd.action, data, cmd.url);
+				if (opts && opts.requeryAfter)
+					await this.$requery();
+				else if (opts && opts.reloadAfter)
+					await this.$reload();
 			},
 
 			$toJson(data) {
@@ -160,6 +183,7 @@
 					console.error('Invalid argument for $execSelected');
 					return;
 				}
+				eventBus.$emit('closeAllPopups');
 				if (!confirm)
 					root._exec_(cmd, arg.$selected);
 				else
@@ -188,11 +212,21 @@
 				else
 					log.error('There is no caller here');
 			},
+			$clearObject(obj) {
+				if (!obj) return;
+				if (obj.$empty)
+					obj.$empty();
+				else {
+					for (let k of Object.keys(obj))
+						obj[k] = null;
+				}
+			},
 			$save(opts) {
 				if (this.$data.$readOnly)
 					return;
 				if (!this.$data.$dirty)
 					return;
+				eventBus.$emit('closeAllPopups');
 				let mainObjectName = this.$data._meta_.$main;
 				let self = this;
 				let root = window.$$rootUrl;
@@ -278,6 +312,10 @@
 				bus.$emit('childrenSaved', dat);
 			},
 
+			$showSidePane(url, arg, data) {
+				let newurl = urltools.combine('_navpane', url, arg || '0') + urltools.makeQueryString(data);
+				eventBus.$emit('showSidePane', newurl);
+			},
 
 			$invoke(cmd, data, base, opts) {
 				let self = this;
@@ -287,9 +325,10 @@
 				let baseUrl = self.$indirectUrl || self.$baseUrl;
 				if (base)
 					baseUrl = urltools.combine('_page', base, 'index', 0);
+				let hideIndicator = opts && opts.hideIndicator || false;
 				return new Promise(function (resolve, reject) {
 					var jsonData = utils.toJson({ cmd: cmd, baseUrl: baseUrl, data: data });
-					dataservice.post(url, jsonData).then(function (data) {
+					dataservice.post(url, jsonData, false, hideIndicator).then(function (data) {
 						if (self.__destroyed__) return;
 						if (utils.isObject(data))
 							resolve(data);
@@ -336,6 +375,7 @@
 
 			$reload(args) {
 				//console.dir('$reload was called for' + this.$baseUrl);
+				eventBus.$emit('closeAllPopups');
 				let self = this;
 				if (utils.isArray(args) && args.$isLazy()) {
 					// reload lazy
@@ -389,7 +429,11 @@
 					});
 				});
 			},
-
+			async $nodirty(callback) {
+				let wasDirty = this.$data.$dirty;
+				await callback();
+				this.$defer(() => this.$data.$setDirty(wasDirty));
+			},
 			$requery() {
 				if (this.inDialog)
 					eventBus.$emit('modalRequery', this.$baseUrl);
@@ -400,6 +444,7 @@
 			$remove(item, confirm) {
 				if (this.$data.$readOnly) return;
 				if (this.$isLoading) return;
+				eventBus.$emit('closeAllPopups');
 				if (!confirm)
 					item.$remove();
 				else
@@ -423,6 +468,9 @@
 					href += '?subject=' + urltools.encodeUrl(subject);
 				return href;
 			},
+			$callphone(phone) {
+				return `tel:${phone}`;
+			},
 			$href(url, data) {
 				return urltools.createUrlForNavigate(url, data);
 			},
@@ -439,6 +487,7 @@
 					this.$store.commit('navigate', { url: urlToNavigate });
 			},
 			$navigateSimple(url, newWindow, update) {
+				eventBus.$emit('closeAllPopups');
 				if (newWindow === true) {
 					let nwin = window.open(url, "_blank");
 					if (nwin)
@@ -449,6 +498,7 @@
 			},
 
 			$navigateExternal(url, newWindow) {
+				eventBus.$emit('closeAllPopups');
 				if (newWindow === true) {
 					window.open(url, "_blank");
 				}
@@ -457,23 +507,29 @@
 			},
 
 			$download(url) {
+				eventBus.$emit('closeAllPopups');
 				const root = window.$$rootUrl;
 				url = urltools.combine('/file', url.replace('.', '-'));
 				window.location = root + url;
 			},
 
-			async $upload(url, accept) {
+			async $upload(url, accept, data, opts) {
+				eventBus.$emit('closeAllPopups');
 				let root = window.$$rootUrl;
 				try {
 					let file = await htmlTools.uploadFile(accept, url);
 					var dat = new FormData();
 					dat.append('file', file, file.name);
+					if (data)
+						dat.append('Key', data.Key || null);
 					let uploadUrl = urltools.combine(root, '_file', url);
-					uploadUrl = urltools.createUrlForNavigate(uploadUrl);
+					uploadUrl = urltools.createUrlForNavigate(uploadUrl, data);
 					return await httpTools.upload(uploadUrl, dat);
 				} catch (err) {
 					err = err || 'unknown error';
-					if (err.indexOf('UI:') === 0)
+					if (opts && opts.catchError)
+						throw err;
+					else if (err.indexOf('UI:') === 0)
 						this.$alert(err);
 					else
 						alert(err);
@@ -481,6 +537,7 @@
 			},
 
 			$file(url, arg, opts) {
+				eventBus.$emit('closeAllPopups');
 				const root = window.$$rootUrl;
 				let id = arg;
 				let token = undefined;
@@ -510,6 +567,7 @@
 			},
 
 			$attachment(url, arg, opts) {
+				eventBus.$emit('closeAllPopups');
 				const root = window.$$rootUrl;
 				let cmd = opts && opts.export ? 'export' : 'show';
 				let id = arg;
@@ -526,6 +584,8 @@
 				attUrl = attUrl + urltools.makeQueryString(qry);
 				if (opts && opts.newWindow)
 					window.open(attUrl, '_blank');
+				else if (opts && opts.print)
+					htmlTools.printDirect(attUrl);
 				else
 					window.location.assign(attUrl);
 			},
@@ -560,6 +620,8 @@
 					return;
 				}
 				if (this.$isLoading) return;
+				eventBus.$emit('closeAllPopups');
+
 				let id = elem.$id;
 				let lazy = elem.$parent.$isLazy ? elem.$parent.$isLazy() : false;
 				let root = window.$$rootUrl;
@@ -599,6 +661,7 @@
 
 			$dbRemoveSelected(arr, confirm, opts) {
 				if (this.$isLoading) return;
+				eventBus.$emit('closeAllPopups');
 				let sel = arr.$selected;
 				if (!sel)
 					return;
@@ -615,6 +678,7 @@
 			},
 
 			$openSelected(url, arr, newwin, update) {
+				eventBus.$emit('closeAllPopups');
 				url = url || '';
 				let sel = arr.$selected;
 				if (!sel)
@@ -786,7 +850,7 @@
 							return __runDialog(url, arg, query, (result) => {
 								if (arg.$merge) {
 									arg.$merge(result);
-								} else {
+								} else if (result !== false) {
 									simpleMerge(arg, result);
 								}
 							});
@@ -907,7 +971,7 @@
 			$report(rep, arg, opts, repBaseUrl, data) {
 				if (this.$isReadOnly(opts)) return;
 				if (this.$isLoading) return;
-
+				eventBus.$emit('closeAllPopups');
 				let cmd = 'show';
 				let fmt = '';
 				let viewer = 'report';
@@ -1275,8 +1339,17 @@
 				if (!utils.isObjectExact(search)) {
 					console.error('base.__queryChange. invalid argument type');
 				}
+				let searchBase = search.__baseUrl__;
+				if (searchBase) {
+					let searchurl = urltools.parseUrlAndQuery(searchBase);
+					let thisurl = urltools.parseUrlAndQuery(this.$data.__baseUrl__);
+					if (searchurl.url !== thisurl.url)
+						return;
+				}
 				let nq = Object.assign({}, this.$baseQuery);
 				for (let p in search) {
+					if (p.startsWith('__'))
+						continue;
 					if (search[p]) {
 						// replace from search
 						nq[p] = search[p];
@@ -1331,7 +1404,9 @@
 					$report: this.$report,
 					$upload: this.$upload,
 					$emitCaller: this.$emitCaller,
-					$emitSaveEvent: this.$emitSaveEvent
+					$emitSaveEvent: this.$emitSaveEvent,
+					$nodirty: this.$nodirty,
+					$showSidePane: this.$showSidePane
 				};
 				Object.defineProperty(ctrl, "$isDirty", {
 					enumerable: true,
@@ -1372,6 +1447,8 @@
 				if (json.saveEvent) {
 					this.__saveEvent__ = json.saveEvent;
 				}
+				if (json.placement)
+					result.placement = json.placement;
 				return result;
 			},
 			__isModalRequery() {

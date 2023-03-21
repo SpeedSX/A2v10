@@ -1,0 +1,168 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+    <link rel="stylesheet" href="../css/site.css" />
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+
+		.dashboard-container {
+            position:relative;
+            width:100%;
+            height:100%;
+            overflow:hidden;
+            padding:1rem;
+		}
+		.dashboard-toolbar {
+            position:absolute;
+            right:0;
+            top:0;
+            height:40px;
+            z-index:2;
+		}
+		.dashboard {
+			display: grid;
+			grid-gap: 1rem;
+			background-color: aliceblue;
+            overflow:auto;
+            max-height:100%;
+            height:100%;
+		}
+        .drag-host {
+            position:fixed;
+            left:-100%;
+            top:-100%;
+            background-color:lightcoral;
+            border:2px solid red;
+            opacity:.9;
+        }
+		.dashboard-item {
+            border:1px solid red;
+            background-color:antiquewhite;
+            position:relative;
+		}
+        .dashboard-item > .drag-area {
+            position:absolute;
+            background-color:rgba(255,255,255, .7);
+            left:0;
+            top:0;
+            right:0;
+            bottom:0;
+        }
+
+        .clear-button {
+            position:absolute;
+            top:0;
+            right:0;
+        }
+
+        .dashboard-placeholder {
+            width:100%;
+            height:100%;
+            border:1px solid blue;
+            background-color:#f8f8f8;
+        }
+		.dashboard-list {
+            width:272px;
+            position:absolute;
+            right:0;
+            top:0;
+            height:100%;
+            overflow:auto;
+            padding:40px 0 0 0;
+            margin:0;
+            background-color:lemonchiffon;
+		}
+		.hover {
+			background-color: #ddd;
+		}
+
+        .editing .dashboard {
+            margin-right:282px;
+        }
+
+    </style>
+</head>
+<body>
+    <div style="display:none">
+        <h3>Dashboard</h3>
+        <a2-dashboard>
+            <a2-dashboard-item :row="1" :col="1">Item 1</a2-dashboard-item>
+            <a2-dashboard-item :row="1" :col="2">Item 2</a2-dashboard-item>
+            <a2-dashboard-item :row="4" :col="3" :col-span="2">Item 3</a2-dashboard-item>
+        </a2-dashboard>
+        <hr />
+    </div>
+    <div id="app" style="height:100%">
+        <a2-dashboard :items=items :list="list" :edit-mode="editMode"
+                      :editable="true" :cell-size="{cx:'200px', cy:'100px'}">
+            <template v-slot:element="elem">
+                <div>
+                    I am a template '{{elem.item.row}}:{{elem.item.col}}' <b>{{elem.item.text}}</b>
+                    <button class="btn">1</button>
+                    <button class="btn">2</button>
+                    <button class="btn">3</button>
+                </div>
+            </template>
+            <template v-slot:listitem="lelem">
+                <div style="height:70px">List template <b>{{lelem.item.text}}</b></div>
+            </template>
+            <template v-slot:toolbar="tb">
+                <div class="toolbar transparent">
+                    <button class="btn btn-tb" @click.stop.prevent="startEdit" v-if="!editMode">Slot Start</button>
+                    <button class="btn btn-tb" @click.stop.prevent="endEdit" v-if="editMode">Slot Save</button>
+                    <button class="btn btn-tb" @click.stop.prevent="endEdit" v-if="editMode">Slot Cancel</button>
+                </div>
+            </template>
+        </a2-dashboard>
+    </div>
+    <script src="../scripts/vue.js"></script>
+    <script src="./dashboard.js"></script>
+    <script>
+        new Vue({
+            el: "#app",
+            data: {
+                editMode: false,
+                items2: [
+                ],
+                items: [
+                    { id: 1, row: 1, col: 1, rowSpan: 1, colSpan: 1, text: 'Item 1' },
+                    { id: 2, row: 1, col: 2, rowSpan: 2, text: 'Item 2' },
+                    { id: 3, row: 3, col: 3, colSpan: 2, text: 'Item 3' },
+                    { id: 4, row: 4, col: 2, rowSpan: 2, colSpan: 2, text: 'Item 4' }
+                ],
+                list: [
+                    { text: 'Item 5' },
+                    { colSpan: 2, text: 'Item 6 (cols 2)' },
+                    { rowSpan: 2, text: 'Item 7 (rows 2)' },
+                    { colSpan: 2, rowSpan: 2, text: 'Item 8 (2 x 2)' },
+                    { text: 'Item 9' },
+                    { text: 'Item 10' },
+                    { text: 'Item 11' },
+                    { text: 'Item 12' },
+                    { text: 'Item 13' },
+                    { text: 'Item 14' },
+                    { text: 'Item 15' },
+                    { text: 'Item 16' },
+                    { text: 'Item 17' },
+                    { text: 'Item 18' },
+                    { text: 'Item 19' },
+                    { text: 'Item 20' },
+                    { text: 'Item 21' },
+                ]
+            },
+            methods: {
+                startEdit() {
+                    this.editMode = true;
+       		},
+                endEdit() {
+					this.editMode = false;
+				}
+            }
+        });
+    </script>
+</body>
+</html>

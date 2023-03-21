@@ -1,4 +1,4 @@
-﻿// Copyright © 2019-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2019-2022 Alex Kukhtin. All rights reserved.
 
 using System;
 using System.Dynamic;
@@ -10,58 +10,59 @@ using Jint;
 using A2v10.Data.Interfaces;
 using A2v10.Infrastructure;
 
-namespace A2v10.Javascript
+namespace A2v10.Javascript;
+
+public class JavaScriptEngine : IJavaScriptEngine
 {
 
-	public class JavaScriptEngine : IJavaScriptEngine
+	private readonly Lazy<Engine> _engine = new(CreateEngine, isThreadSafe: true);
+	private ScriptEnvironment _env;
+
+	private readonly IDbContext _dbContext;
+	private readonly IApplicationHost _host;
+	private readonly ISmsService _smsService;
+	private readonly IServiceLocator _locator;
+
+	private String _currentDirectory;
+
+	public JavaScriptEngine(IDbContext dbContext, IApplicationHost host, ISmsService smsService, IServiceLocator locator)
 	{
+		_dbContext = dbContext;
+		_host = host;
+		_smsService = smsService;
+		_locator = locator;
+	}
 
-		private readonly Lazy<Engine> _engine = new Lazy<Engine>(CreateEngine, isThreadSafe: true);
-		private ScriptEnvironment _env;
+	public static Engine CreateEngine()
+	{
+		return new Engine(EngineOptions);
+	}
 
-		private readonly IDbContext _dbContext;
-		private readonly IApplicationHost _host;
-		private readonly ISmsService _smsService;
+	public static void EngineOptions(Options opts)
+	{
+		opts.Strict(true);
+		// opts.CatchClrExceptions(ex => true);
+	}
 
-		private String _currentDirectory;
+	public ScriptEnvironment Environment()
+	{
+		_env ??= new ScriptEnvironment(_engine.Value, _locator, _dbContext, _host, _smsService, _currentDirectory);
+		return _env;
+	}
 
-		public JavaScriptEngine(IDbContext dbContext, IApplicationHost host, ISmsService smsService)
-		{
-			_dbContext = dbContext;
-			_host = host;
-			_smsService = smsService;
-		}
+	public void SetCurrentDirectory(String dirName)
+	{
+		_currentDirectory = dirName;
+	}
 
-		public static Engine CreateEngine()
-		{
-			return new Engine(EngineOptions);
-		}
+	public Object Execute(String script, ExpandoObject prms, ExpandoObject args)
+	{
+		var eng = _engine.Value;
 
-		public static void EngineOptions(Options opts)
-		{
-			opts.Strict(true);
-		}
+		var strPrms = JsonConvert.ToString(JsonConvert.SerializeObject(prms), '\'', StringEscapeHandling.Default);
+		var strArgs = JsonConvert.ToString(JsonConvert.SerializeObject(args), '\'', StringEscapeHandling.Default);
 
-		public ScriptEnvironment Environment()
-		{
-			if (_env == null)
-				_env = new ScriptEnvironment(_engine.Value, _dbContext, _host, _smsService);
-			return _env;
-		}
-
-		public void SetCurrentDirectory(String dirName)
-		{
-			_currentDirectory = dirName;
-		}
-
-		public Object Execute(String script, ExpandoObject prms, ExpandoObject args)
-		{
-			var eng = _engine.Value;
-
-			var strPrms = JsonConvert.ToString(JsonConvert.SerializeObject(prms), '\'', StringEscapeHandling.Default);
-			var strArgs = JsonConvert.ToString(JsonConvert.SerializeObject(args), '\'', StringEscapeHandling.Default);
-
-			String code = $@"
+		String code = $@"
 return (function() {{
 const __params__ = JSON.parse({strPrms});
 const __args__ = JSON.parse({strArgs});
@@ -78,11 +79,10 @@ return function(_this) {{
 }})();";
 
 
-			var func = eng.Evaluate(code);
+		var func = eng.Evaluate(code);
 
-			var result = eng.Invoke(func, Environment());
+		var result = eng.Invoke(func, Environment());
 
-			return result.ToObject();
-		}
+		return result.ToObject();
 	}
 }
