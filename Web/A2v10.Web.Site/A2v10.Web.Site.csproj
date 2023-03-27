@@ -115,6 +115,7 @@
     <Content Include="app\components\accelcommand.js" />
     <Content Include="app\components\colorpicker.js" />
     <Content Include="app\components\dashboard.js" />
+    <Content Include="app\components\kanban.js" />
     <Content Include="app\components\tagscontrol.js" />
     <Content Include="app\components\treegrid.js" />
     <Content Include="app\components\inlinedialog.js" />
@@ -394,6 +395,7 @@
     <Content Include="Less.Advance\ColorPicker.less" />
     <Content Include="Less\ColorPicker.less" />
     <Content Include="Less.Advance\TagsControl.less" />
+    <Content Include="Less.Advance\Kanban.less" />
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>
