@@ -125,9 +125,13 @@ vm.__doInit__('$(BaseUrl)');
 			_localizer = localizer;
 		}
 
-		public String CreateDataModelScript(IDataModel model)
+		public String CreateDataModelScript(IDataModel model, Boolean isPlain)
 		{
-			return model != null ? model.CreateScript(this) : CreateEmptyStript();
+			if (model == null)
+				return CreateEmptyStript();
+			if (isPlain)
+				return CreatePlainScript();
+			return model.CreateScript(this);
 		}
 
 		public String CreateScript(IDataHelper helper, IDictionary<String, Object> sys, IDictionary<String, IDataMetadata> meta)
@@ -148,6 +152,23 @@ vm.__doInit__('$(BaseUrl)');
 			return sb.ToString();
 		}
 
+		String CreatePlainScript()
+		{
+			// as empty 
+			return @"
+function modelData(template, data) {
+	const cmn = require('std:datamodel');
+	function TRoot(source, path, parent) { cmn.createObject(this, source, path, parent);}
+	cmn.defineObject(TRoot, { props: { } }, false);
+	cmn.implementRoot(TRoot, template, {TRoot});
+	let root = new TRoot(data);
+	cmn.setModelInfo(root, {}, rawData); 
+	if (template.loaded)
+		template.loaded(rawData);
+	return root;
+}
+";
+		}
 		String CreateEmptyStript()
 		{
 			return @"
@@ -175,10 +196,10 @@ function modelData(template, data) {
 					val = val.ToString().ToLowerInvariant();
 				else if (val is String)
 					val = $"'{val}'";
-				else if (val is Object)
-					val = JsonConvert.SerializeObject(val);
 				else if (val is DateTime)
 					val = helper.DateTime2StringWrap(val);
+				else if (val is Object)
+					val = JsonConvert.SerializeObject(val);
 				sb.Append($"'{k.Key}': {val},");
 			}
 			sb.RemoveTailComma();
@@ -277,7 +298,7 @@ function modelData(template, data) {
 
 		public String GetSpecialProperties(IDataMetadata meta)
 		{
-			StringBuilder sb = new StringBuilder();
+			StringBuilder sb = new();
 			if (!String.IsNullOrEmpty(meta.Id))
 				sb.Append($"$id: '{meta.Id}',");
 			if (!String.IsNullOrEmpty(meta.Name))
@@ -302,7 +323,7 @@ function modelData(template, data) {
 				sb.Append($"$group: true,");
 			if (meta.HasCross)
 				sb.Append($"$cross: {GetCrossProperties(meta)},");
-			StringBuilder lazyFields = new StringBuilder();
+			StringBuilder lazyFields = new();
 			foreach (var f in meta.Fields)
 			{
 				if (f.Value.IsLazy)
@@ -508,10 +529,10 @@ function modelData(template, data) {
 		public async Task<ScriptInfo> GetModelScript(ModelScriptInfo msi)
 		{
 			var result = new ScriptInfo();
-			StringBuilder output = new StringBuilder();
+			StringBuilder output = new();
 			String dataModelText = "{}";
 			String templateText = "{}";
-			StringBuilder sbRequired = new StringBuilder();
+			StringBuilder sbRequired = new();
 
 			// write model script
 			String fileTemplateText = null;
@@ -535,7 +556,7 @@ function modelData(template, data) {
 			modelFunc.Replace("$(RequiredModules)", sbRequired?.ToString());
 			modelFunc.Replace("$(TemplateText)", Localize(templateText));
 			modelFunc.Replace("$(DataModelText)", dataModelText);
-			String modelScript = CreateDataModelScript(msi.DataModel);
+			String modelScript = CreateDataModelScript(msi.DataModel, msi.IsPlain);
 			modelFunc.Replace("$(ModelScript)", modelScript);
 			result.DataScript = modelFunc.ToString();
 
@@ -560,9 +581,8 @@ function modelData(template, data) {
 			String templateText = "{}";
 			if (msi.Template != null)
 			{
-				String fileTemplateText = _host.ApplicationReader.ReadTextFile(msi.Path, msi.Template + ".js");
-				if (fileTemplateText == null)
-					throw new FileNotFoundException($"File not found. '{Path.Combine(msi.Path, msi.Template)}'");
+				String fileTemplateText = _host.ApplicationReader.ReadTextFile(msi.Path, msi.Template + ".js") 
+					?? throw new FileNotFoundException($"File not found. '{Path.Combine(msi.Path, msi.Template)}'");
 				sbRequired = new StringBuilder();
 				AddRequiredModules(sbRequired, fileTemplateText);
 				templateText = CreateTemplateForWrite(Localize(fileTemplateText));

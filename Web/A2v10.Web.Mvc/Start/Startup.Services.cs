@@ -26,9 +26,9 @@ namespace A2v10.Web.Mvc.Start;
 
 public static partial class Startup
 {
-        private static IServiceLocator _currentLocator;
+    private static IServiceLocator _currentLocator;
 
-	private static IHooksProvider _hooksProvider = new HooksProvider();
+	private static readonly IHooksProvider _hooksProvider = new HooksProvider();
 
 	private static ILicenseManager _licenseManager;
 
@@ -70,7 +70,7 @@ public static partial class Startup
                 ISmsService smsService = new SmsService(dbContext, logger);
 			IRenderer renderer = new XamlRenderer(profiler, host);
 			IDataScripter scripter = new VueDataScripter(host, localizer);
-			IExternalLoginManager externalLoginManager = new ExternalLoginManager(dbContext);
+			IExternalLoginManager externalLoginManager = new ExternalLoginManager();
 			IUserStateManager userStateManager = new WebUserStateManager(host, dbContext);
                 IMessaging messaging = new MessageProcessor(host, dbContext, emailService, smsService, logger);
                 IWorkflowEngine workflowEngine = new WorkflowEngine(host, dbContext, messaging);
@@ -106,16 +106,14 @@ public static partial class Startup
 			if (_licenseManager != null)
 				locator.RegisterService<ILicenseManager>(_licenseManager);
 
-			if (HttpContext.Current != null)
-				HttpContext.Current.Items.Add("ServiceLocator", locator);
+			HttpContext.Current?.Items.Add("ServiceLocator", locator);
 		};
 
-            IServiceLocator GetOrCreateStatic()
-            {
-                if (_currentLocator == null)
-                    _currentLocator = new ServiceLocator();
-                return _currentLocator;
-            }
+        static IServiceLocator GetOrCreateStatic()
+        {
+            _currentLocator ??= new ServiceLocator();
+            return _currentLocator;
+        }
 
 		ServiceLocator.GetCurrentLocator = () =>
 		{

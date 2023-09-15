@@ -342,6 +342,7 @@ public partial class BaseController
 			IsDialog = rw.IsDialog,
 			IsIndex = rw.index,
 			IsSkipDataStack = rw.skipDataStack,
+			IsPlain = rw.plain,
 			Template = rw.template,
 			Path = rw.Path,
 			BaseUrl = rw.ParentModel.BasePath
@@ -468,10 +469,9 @@ public partial class BaseController
 	{
 		var rm = await RequestModel.CreateFromBaseUrl(_host, baseUrl);
 		RequestView rw = rm.GetCurrentAction();
-		String loadProc = rw.LoadProcedure;
-		if (loadProc == null)
-			throw new RequestModelException("The data model is empty");
-		var prms = new ExpandoObject();
+		String loadProc = rw.LoadProcedure 
+			?? throw new RequestModelException("The data model is empty");
+        var prms = new ExpandoObject();
 		prms.Set("UserId", userId);
 		prms.Set("Id", rw.Id);
 		IDataModel model = await _dbContext.LoadModelAsync(rw.CurrentSource, loadProc, prms, rw.commandTimeout);

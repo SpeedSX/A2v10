@@ -1,6 +1,6 @@
 ﻿
 /* Copyright © 2019-2023 Oleksandr Kukhtin. All rights reserved. */
-/* Version 10.0.7919 */
+/* Version 10.0.7943 */
 
 interface keyable {
 	[key: string]: any
@@ -23,7 +23,7 @@ interface ServerAuthorization {
 interface ServerFetchResponse {
 	ok: boolean;
 	isJson: boolean;
-	json(): string;
+	json(): any;
 	text(): string;
 	statusText: string;
 	contentType: string;
@@ -47,10 +47,17 @@ interface ServerConfiguration {
 	appSettings(name: string): keyable;
 }
 
+interface CurrentUserInfo {
+	segment?: string;
+	userId?: number;
+	tenantId?: number;
+}
+
 interface ServerSqlParameters {
 	source?: string;
 	procedure: string;
 	parameters?: object;
+	forCurrentUser?: boolean;
 }
 
 interface ServerSaveModelParameters extends ServerSqlParameters {
@@ -58,7 +65,8 @@ interface ServerSaveModelParameters extends ServerSqlParameters {
 }
 
 interface ServerEnvironment {
-	config: ServerConfiguration;
+	readonly config: ServerConfiguration;
+	readonly currentUser: CurrentUserInfo;
 	fetch(url: string, prms?: ServerFetchRequest): ServerFetchResponse;
 	executeSql(args: ServerSqlParameters): keyable;
 	loadModel(args: ServerSqlParameters): keyable;
@@ -66,4 +74,11 @@ interface ServerEnvironment {
 	toBase64(source: string, codePage: number, safe: boolean): string;
 	generateApiKey(): string;
 	require(fileName: string, prms: object, args: object): any;
+	createObject(name: string, prms: object): any;
+	invokeCommand(cmd: string, baseUrl: string, prms: object): any;
+	queueTask(command: string, prms: object, runAt?: Date): object;
+}
+
+declare class DateUtils {
+	format(d: any, f: string): string;
 }

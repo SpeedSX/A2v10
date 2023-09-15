@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
 using System;
 using System.Configuration;
@@ -15,6 +15,15 @@ using A2v10.Messaging;
 using System.Collections.Generic;
 
 namespace A2v10.Web.Mvc.Quartz;
+
+/*
+
+ATTENTION! It does not work if the host file name contains dots!
+
+WebApp.dll - works correct.
+Web.App.dll - does not work. 
+
+*/
 
 public class Scheduler
 {

@@ -115,7 +115,7 @@ app.modules['std:const'] = function () {
 
 // Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20230224-7921
+// 20230814-7943
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -160,6 +160,7 @@ app.modules['std:utils'] = function () {
 		eval: evaluate,
 		simpleEval: simpleEval,
 		format: format,
+		convertToString,
 		toNumber,
 		parse: parse,
 		getStringId,
@@ -437,6 +438,15 @@ app.modules['std:utils'] = function () {
 		return formatDate(date);
 	}
 
+	function convertToString(obj) {
+		if (!obj)
+			return '';
+		if (isObjectExact(obj) && 'Name' in obj)
+			return obj.Name;
+		else if (isDate(obj))
+			return formatDate(obj);
+		return '' + val;
+	}
 
 	function format(obj, dataType, opts) {
 		opts = opts || {};
@@ -446,6 +456,7 @@ app.modules['std:utils'] = function () {
 			return '';
 		switch (dataType) {
 			case "DateTime":
+				if (!obj) return '';
 				if (!isDate(obj)) {
 					console.error(`Invalid Date for utils.format (${obj})`);
 					return obj;
@@ -456,6 +467,7 @@ app.modules['std:utils'] = function () {
 					return formatDateWithFormat(obj, opts.format);
 				return formatDate(obj) + ' ' + formatTime(obj);
 			case "Date":
+				if (!obj) return '';
 				if (isString(obj))
 					obj = string2Date(obj);
 				if (!isDate(obj)) {
@@ -652,6 +664,7 @@ app.modules['std:utils'] = function () {
 	}
 
 	function dateIsZero(d1) {
+		if (d1 === null) return true;
 		if (!isDate(d1)) return false;
 		return dateEqual(d1, dateZero());
 	}
@@ -933,7 +946,8 @@ app.modules['std:utils'] = function () {
 			events: assign(src.events, tml.events),
 			defaults: assign(src.defaults, tml.defaults),
 			commands: assign(src.commands, tml.commands),
-			delegates: assign(src.delegates, tml.delegates)
+			delegates: assign(src.delegates, tml.delegates),
+			options: assign(src.options, tml.options)
 		});
 	}
 };
@@ -1240,9 +1254,9 @@ app.modules['std:period'] = function () {
 };
 
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Oleksandr Kukhtin. All rights reserved.
 
-// 20210211-7747
+// 20210823-7842
 /* services/modelinfo.js */
 
 app.modules['std:modelInfo'] = function () {
@@ -1279,7 +1293,10 @@ app.modules['std:modelInfo'] = function () {
 		let x = { pageSize: mi.PageSize, offset: mi.Offset, dir: mi.SortDir, order: mi.SortOrder, group: mi.GroupBy };
 		if (mi.Filter) {
 			for (let p in mi.Filter) {
-				x[p] = mi.Filter[p];
+				let fv = mi.Filter[p];
+				if (fv && fv.call)
+					fv = fv.call(this);
+				x[p] = fv;
 			}
 		}
 		return x;
@@ -1551,7 +1568,7 @@ app.modules['std:validators'] = function () {
 
 // Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20230318-7922*/
+/*20230807-7941*/
 /* services/impl/array.js */
 
 app.modules['std:impl:array'] = function () {
@@ -1654,14 +1671,19 @@ app.modules['std:impl:array'] = function () {
 
 	function addResize(arr) {
 
-		arr.$empty = function () {
-			if (this.$root.isReadOnly)
-				return this;
-			this._root_.$setDirty(true);
+		arr.__empty__ = function () {
+			// without dirty
 			this.splice(0, this.length);
 			if ('$RowCount' in this)
 				this.$RowCount = 0;
 			return this;
+		}
+
+		arr.$empty = function () {
+			if (this.$root.isReadOnly)
+				return this;
+			this._root_.$setDirty(true);
+			return this.__empty__();
 		};
 
 		arr.$append = function (src) {
@@ -1890,6 +1912,7 @@ app.modules['std:impl:array'] = function () {
 	}
 
 	function defineArrayItemProto(elem) {
+
 		let proto = elem.prototype;
 
 		proto.$remove = function () {
@@ -1916,12 +1939,39 @@ app.modules['std:impl:array'] = function () {
 			}
 		};
 
+		proto.$canMove = function (dir) {
+			let arr = this._parent_;
+			if (arr.length < 2) return;
+			let i1 = arr.indexOf(this);
+			if (dir === 'up')
+				return i1 >= 1;
+			else if (dir === 'down')
+				return i1 < arr.length - 1;
+			return false;
+		}
+
+		proto.$move = function(dir) {
+			let arr = this._parent_;
+			if (arr.length < 2) return;
+			let i1 = arr.indexOf(this);
+			let i2 = i1;
+			if (dir === 'up') {
+				if (i1 < 1) return;
+				i1 -= 1;
+			} else if (dir === 'down') {
+				if (i1 >= arr.length - 1) return;
+				i2 += 1;
+			}
+			arr.splice(i1, 2, arr[i2], arr[i1]);
+			arr.$renumberRows();
+			return this;
+		}
 	}
 };
 
 /* Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.*/
 
-/*20230318-7922*/
+/*20230807-7941*/
 // services/datamodel.js
 
 /*
@@ -2349,6 +2399,7 @@ app.modules['std:impl:array'] = function () {
 
 			elem._fireLoad_ = () => {
 				platform.defer(() => {
+					if (!elem.$vm) return;
 					let isRequery = elem.$vm.__isModalRequery();
 					elem.$emit('Model.load', elem, _lastCaller, isRequery);
 					elem._root_.$setDirty(elem._root_.$isCopy ? true : false);
@@ -2368,6 +2419,12 @@ app.modules['std:impl:array'] = function () {
 			elem._fireGlobalPeriodChanged_ = (period) => {
 				elem.$emit('GlobalPeriod.change', elem, period);
 			};
+			elem._fireGlobalAppEvent_ = (ev) => {
+				elem.$emit(ev.event, ev.data);
+			}
+			elem._fireSignalAppEvent_ = (ev) => {
+				elem.$emit("Signal." + ev.event, ev.data);
+			}
 		}
 		if (startTime) {
 			logtime('create root time:', startTime, false);
@@ -2647,6 +2704,14 @@ app.modules['std:impl:array'] = function () {
 		}
 	}
 
+	function getGlobalSaveEvent() {
+		let tml = this.$template;
+		if (!tml) return undefined;
+		let opts = tml.options;
+		if (!opts) return undefined;
+		return opts.globalSaveEvent;
+
+	}
 	function getDelegate(name) {
 		let tml = this.$template;
 		if (!tml || !tml.delegates) {
@@ -2869,7 +2934,7 @@ app.modules['std:impl:array'] = function () {
 
 	function hasErrors(props) {
 		if (!props || !props.length) return false;
-		let errs = this._collectErrors_();
+		let errs = this._allErrors_;
 		if (!errs.length) return false;
 		for (let i = 0; i < errs.length; i++) {
 			let e = errs[i];
@@ -2880,21 +2945,6 @@ app.modules['std:impl:array'] = function () {
 	}
 
 	function collectErrors() {
-		let me = this;
-		if (!me._host_) return me._allErrors_;
-		if (!me._needValidate_) return me._allErrors_;
-		let tml = me.$template;
-		if (!tml) return me._allErrors_;
-		let vals = tml.validators;
-		if (!vals) return me._allErrors_;
-		me._allErrors_.splice(0, me._allErrors_.length);
-		for (var val in vals) {
-			let err1 = validateOneElement(me, val, vals[val]);
-			if (err1) {
-				me._allErrors_.push({ x: val, e: err1 });
-			}
-		}
-		return me._allErrors_;
 	}
 
 	function validateAll(force) {
@@ -2917,16 +2967,35 @@ app.modules['std:impl:array'] = function () {
 			}
 		}
 		logtime('validation time:', startTime);
+		// merge allerrs into
+		// sync arrays:
+		// if me._allErrors_[i] not found in allerrs => remove it
+		let i = me._allErrors_.length;
+		while (i--) {
+			let a = me._allErrors_[i];
+			if (!allerrs.find(n => n.x === a.x))
+				me._allErrors_.splice(i, 1);
+		}
+		// if allerrs[i] not found in me._allErrors_ => append it
+		allerrs.forEach(n => {
+			if (!me._allErrors_.find(a => a.x === n.x))
+				me._allErrors_.push(n);
+		});
+
+
+
 		return allerrs;
 		//console.dir(allerrs);
 	}
 
 	function setDirty(val, path, prop) {
+		if (val === this.$dirty) return;
 		if (this.$root.$readOnly)
 			return;
-		if (path && path.toLowerCase().startsWith('query'))
-			return;
+		this.$root.$emit('Model.dirty.change', val, `${path}.${prop}`);
 		if (isNoDirty(this.$root))
+			return;
+		if (path && path.toLowerCase().startsWith('query'))
 			return;
 		if (path && prop && isSkipDirty(this.$root, `${path}.${prop}`))
 			return;
@@ -3081,10 +3150,10 @@ app.modules['std:impl:array'] = function () {
 		root.prototype._exec_ = executeCommand;
 		root.prototype._canExec_ = canExecuteCommand;
 		root.prototype._delegate_ = getDelegate;
+		root.prototype._globalSaveEvent_ = getGlobalSaveEvent;
 		root.prototype._validate_ = validate;
 		root.prototype._validateAll_ = validateAll;
 		root.prototype.$forceValidate = forceValidateAll;
-		root.prototype._collectErrors_ = collectErrors;
 		root.prototype.$hasErrors = hasErrors;
 		root.prototype.$destroy = destroyRoot;
 		// props cache for t.construct

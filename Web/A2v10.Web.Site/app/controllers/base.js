@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20230224-7921*/
+/*20230830-7947*/
 // controllers/base.js
 
 (function () {
@@ -206,6 +206,12 @@
 				if (this.__saveEvent__)
 					this.$caller.$data.$emit(this.__saveEvent__, this.$data);
 			},
+			$emitGlobal(event, data) {
+				eventBus.$emit('globalAppEvent', { event, data });
+			},
+			$emitParentTab(event, data) {
+				eventBus.$emit('toParentTab', { event, source: this, data });
+			},
 			$emitCaller(event, ...arr) {
 				if (this.$caller)
 					this.$caller.$data.$emit(event, ...arr);
@@ -220,6 +226,32 @@
 					for (let k of Object.keys(obj))
 						obj[k] = null;
 				}
+			},
+			$savePart(dataToSave, urlToSave, dialog) {
+				if (this.$data.$readOnly)
+					return;
+				eventBus.$emit('closeAllPopups');
+				let self = this;
+				let root = window.$$rootUrl;
+				const routing = require('std:routing'); // defer loading
+
+				let url = `${root}/${routing.dataUrl()}/save`;
+				return new Promise(function (resolve, reject) {
+					let baseUrl = urltools.combine(dialog ? '/_dialog' : '/_page', urlToSave);
+					let jsonData = utils.toJson({ baseUrl: baseUrl, data: dataToSave });
+					dataservice.post(url, jsonData).then(function (data) {
+						if (self.__destroyed__) return;
+						if (dataToSave.$merge) {
+							dataToSave.$merge(data, true, true /*only exists*/);
+							resolve(dataToSave); // merged
+						} else
+							resolve(data); // from server
+					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
+						self.$alertUi(msg);
+					});
+				});
 			},
 			$save(opts) {
 				if (this.$data.$readOnly)
@@ -253,6 +285,9 @@
 						self.$data.$emit('Model.saved', self.$data);
 						if (self.__saveEvent__)
 							self.$caller.$data.$emit(self.__saveEvent__, self.$data);
+						let globalSaveEvent = self.$data._globalSaveEvent_();
+						if (globalSaveEvent)
+							self.$emitGlobal(globalSaveEvent, self.$data);
 						self.$data.$setDirty(false);
 						// data is a full model. Resolve requires only single element.
 						let dataToResolve;
@@ -389,12 +424,12 @@
 				let url = `${root}/${routing.dataUrl()}/reload`;
 				let dat = self.$data;
 
-				let mi = args ? modelInfo.get(args.$ModelInfo) : null;
+				let mi = args ? modelInfo.get.call(this.$data, args.$ModelInfo) : null;
 				if (!args && !mi) {
 					// try to get first $ModelInfo
 					let modInfo = this.$data._findRootModelInfo();
 					if (modInfo) {
-						mi = modelInfo.get(modInfo);
+						mi = modelInfo.get.call(this.$data, modInfo);
 					}
 				}
 
@@ -411,6 +446,7 @@
 					let jsonData = utils.toJson(dataToQuery);
 					dataservice.post(url, jsonData).then(function (data) {
 						if (self.__destroyed__) return;
+						eventBus.$emit('pageReloaded', dataToQuery.baseUrl);
 						if (utils.isObject(data)) {
 							dat.$merge(data, true/*checkBindOnce*/);
 							modelInfo.reconcileAll(data.$ModelInfo);
@@ -432,13 +468,14 @@
 			async $nodirty(callback) {
 				let wasDirty = this.$data.$dirty;
 				await callback();
-				this.$defer(() => this.$data.$setDirty(wasDirty));
+				if (!this.$data) return;
+				this.$defer(() => this.$data ? this.$data.$setDirty(wasDirty) : undefined);
 			},
-			$requery() {
+			$requery(query) {
 				if (this.inDialog)
 					eventBus.$emit('modalRequery', this.$baseUrl);
 				else
-					eventBus.$emit('requery');
+					eventBus.$emit('requery', this, query);
 			},
 
 			$remove(item, confirm) {
@@ -530,9 +567,10 @@
 					if (opts && opts.catchError)
 						throw err;
 					else if (err.indexOf('UI:') === 0)
-						this.$alert(err);
+						this.$alert(err.substring(3).replace('\\n', '\n'));
 					else
 						alert(err);
+					return false;
 				}
 			},
 
@@ -1147,6 +1185,8 @@
 					opts = { dataType: opts };
 				if (!opts.format && !opts.dataType && !opts.mask)
 					return value;
+				if (opts.format === 'ToString')
+					return utils.convertToString(value, opts);
 				if (opts.mask)
 					return value ? mask.getMasked(opts.mask, value) : value;
 				if (opts.dataType)
@@ -1219,25 +1259,17 @@
 				let self = this,
 					root = window.$$rootUrl,
 					url = `${root}/${routing.dataUrl()}/loadlazy`,
-					selfMi = elem[propName].$ModelInfo,
-					parentMi = elem.$parent.$ModelInfo;
+					selfMi = elem[propName].$ModelInfo;
 
-				// HACK. inherit filter from parent modelInfo
-				/*
-				?????
-				if (parentMi && parentMi.Filter) {
-					if (selfMi)
-						modelInfo.mergeFilter(selfMi.Filter, parentMi.Filter);
-					else
-						selfMi = parentMi;
+				if (!selfMi) {
+					let evData = { elem: elem, prop: propName, modelInfo: null };
+					this.$data.$emit('Model.lazy.init', evData);
+					selfMi = evData.modelInfo; // may be changed
 				}
-				*/
 
-				let mi = modelInfo.get(selfMi);
+				let mi = modelInfo.get.call(self.$data, selfMi);
 				let xQuery = urltools.parseUrlAndQuery(self.$baseUrl, mi);
 				let newUrl = xQuery.url + urltools.makeQueryString(mi);
-				//console.dir(newUrl);
-				//let jsonData = utils.toJson({ baseUrl: urltools.replaceUrlQuery(self.$baseUrl, mi), id: elem.$id, prop: propName });
 				let jsonData = utils.toJson({ baseUrl: newUrl, id: elem.$id, prop: propName });
 
 				return new Promise(function (resolve, reject) {
@@ -1249,7 +1281,7 @@
 					dataservice.post(url, jsonData).then(function (data) {
 						if (self.__destroyed__) return;
 						if (propName in data) {
-							arr.$empty();
+							arr.__empty__();
 							for (let el of data[propName])
 								arr.push(arr.$new(el));
 							let rcName = propName + '.$RowCount';
@@ -1379,6 +1411,7 @@
 			__createController__() {
 				let ctrl = {
 					$save: this.$save,
+					$savePart: this.$savePart,
 					$invoke: this.$invoke,
 					$close: this.$close,
 					$modalClose: this.$modalClose,
@@ -1405,6 +1438,8 @@
 					$upload: this.$upload,
 					$emitCaller: this.$emitCaller,
 					$emitSaveEvent: this.$emitSaveEvent,
+					$emitGlobal: this.$emitGlobal,
+					$emitParentTab: this.$emitParentTab,
 					$nodirty: this.$nodirty,
 					$showSidePane: this.$showSidePane
 				};
@@ -1474,6 +1509,14 @@
 			},
 			__global_period_changed__(period) {
 				this.$data._fireGlobalPeriodChanged_(period);
+			},
+			__signalAppEvent__(data) {
+				if (this.$data && this.$data._fireSignalAppEvent_)
+					this.$data._fireSignalAppEvent_(data);
+			},
+			__globalAppEvent__(data) {
+				if (this.$data && this.$data._fireGlobalAppEvent_)
+					this.$data._fireGlobalAppEvent_(data);
 			}
 		},
 		created() {
@@ -1483,12 +1526,17 @@
 			this.$caller = out.caller;
 			this.__destroyed__ = false;
 
+			if (!this.$store && store.create)
+				this.$store = store.create(this);
+
 			eventBus.$on('beginRequest', this.__beginRequest);
 			eventBus.$on('endRequest', this.__endRequest);
 			eventBus.$on('queryChange', this.__queryChange);
 			eventBus.$on('childrenSaved', this.__notified);
 			eventBus.$on('invokeTest', this.__invoke__test__);
 			eventBus.$on('globalPeriodChanged', this.__global_period_changed__);
+			eventBus.$on('globalAppEvent', this.__globalAppEvent__);
+			eventBus.$on('signalEvent', this.__signalAppEvent__);
 
 			this.$on('cwChange', this.__cwChange);
 			this.__asyncCache__ = {};
@@ -1497,7 +1545,8 @@
 				log.time('create time:', __createStartTime, false);
 		},
 		beforeDestroy() {
-			this.$data._fireUnload_();
+			if (this.$data._fireUnload_)
+				this.$data._fireUnload_();
 		},
 		destroyed() {
 			//console.dir('base.js has been destroyed');
@@ -1510,6 +1559,7 @@
 			eventBus.$off('childrenSaved', this.__notified);
 			eventBus.$off('invokeTest', this.__invoke__test__);
 			eventBus.$off('globalPeriodChanged', this.__global_period_changed__);
+			eventBus.$off('globalAppEvent', this.__globalAppEvent__);
 
 			this.$off('cwChange', this.__cwChange);
 			htmlTools.removePrintFrame();

@@ -16,6 +16,7 @@ using A2v10.Infrastructure;
 using A2v10.Interop;
 using A2v10.Interop.AzureStorage;
 using A2v10.Javascript;
+using System.Text.RegularExpressions;
 
 namespace A2v10.Request;
 
@@ -26,7 +27,7 @@ public partial class BaseController
 		var rm = await RequestModel.CreateFromBaseUrl(_host, pathInfo);
 		var ru = rm.GetFile();
 
-		ExpandoObject savePrms = new ExpandoObject();
+		ExpandoObject savePrms = new();
 		setParams?.Invoke(savePrms);
 		savePrms.Append(formParams);
 		savePrms.AppendIfNotExists(ru.parameters);
@@ -118,40 +119,33 @@ public partial class BaseController
 	{
 		if (ru.availableModels != null)
 		{
-			using (var xp = new ExcelParser())
-			{
-				if (fileName != null)
-					prms.Set("FileName", fileName);
-				var epr = xp.CreateDataModel(stream);
-				String cols = String.Join("|", epr.Columns);
-				var fm = ru.FindModel(null, cols);
-				if (fm == null)
-					throw new RequestModelException($"There is no model for columns='{cols}'");
-				prms.Append(fm.parameters);
-				var dm = await _dbContext.SaveModelAsync(fm.CurrentSource(ru), fm.UpdateProcedure(ru), epr.Data, prms, null, ru.commandTimeout);
-				return dm?.Root;
-			}
-		}
+            using var xp = new ExcelParser();
+            if (fileName != null)
+                prms.Set("FileName", fileName);
+            var epr = xp.CreateDataModel(stream);
+            String cols = String.Join("|", epr.Columns);
+            var fm = ru.FindModel(null, cols)
+                ?? throw new RequestModelException($"There is no model for columns='{cols}'");
+            prms.Append(fm.parameters);
+            var dm = await _dbContext.SaveModelAsync(fm.CurrentSource(ru), fm.UpdateProcedure(ru), epr.Data, prms, null, ru.commandTimeout);
+            return dm?.Root;
+        }
 		else if (String.IsNullOrEmpty(ru.CurrentModel))
 		{
-			using (var xp = new ExcelParser())
-			{
-				var epr = xp.CreateDataModel(stream);
-				return epr.Data;
-			}
-		}
+            using var xp = new ExcelParser();
+            var epr = xp.CreateDataModel(stream);
+            return epr.Data;
+        }
 		else
 		{
-			using (var xp = new ExcelParser())
-			{
-				xp.ErrorMessage = "UI:@[Error.FileFormatException]";
-				IDataModel dm = await _dbContext.SaveModelAsync(ru.CurrentSource, ru.UpdateProcedure, null, prms, (table) =>
-				{
-					return xp.ParseFile(stream, table).Data;
-				});
-				return dm?.Root;
-			}
-		}
+            using var xp = new ExcelParser();
+            xp.ErrorMessage = "UI:@[Error.FileFormatException]";
+            IDataModel dm = await _dbContext.SaveModelAsync(ru.CurrentSource, ru.UpdateProcedure, null, prms, (table) =>
+            {
+                return xp.ParseFile(stream, table).Data;
+            });
+            return dm?.Root;
+        }
 	}
 
 	async Task<ExpandoObject> SaveJson(RequestFile rf, Stream stream, ExpandoObject prms)
@@ -163,11 +157,9 @@ public partial class BaseController
 		}
 		else
 		{
-			using (var sr = new StreamReader(stream))
-			{
-				json = sr.ReadToEnd();
-			}
-		}
+            using var sr = new StreamReader(stream);
+            json = sr.ReadToEnd();
+        }
 		var data = JsonConvert.DeserializeObject<ExpandoObject>(json);
 		var res = await _dbContext.SaveModelAsync(rf.CurrentSource, rf.UpdateProcedure, data, prms, null, rf.commandTimeout);
 		return res.Root;
@@ -211,7 +203,7 @@ public partial class BaseController
 
 	async Task<Object> SaveFilesSql(RequestFile ru, ExpandoObject prms, HttpFileCollectionBase files)
 	{
-		AttachmentUpdateInfo ii = new AttachmentUpdateInfo()
+		AttachmentUpdateInfo ii = new()
 		{
 			UserId = prms.Get<Int64>("UserId"),
 			Key = prms.Get<String>("Key"),
@@ -245,9 +237,28 @@ public partial class BaseController
 		return resultList;
 	}
 
+	String ResolveAzureContainer(String container)
+	{
+		// [path_1/]((Segment ?? DEFAULT_SEGMENT))[path_2]
+		if (String.IsNullOrEmpty(container))
+			return String.Empty;
+		container = container.Trim();
+
+		const String pattern = @"(.*)\(\(Segment\s*?\?\?\s*(.*)\s*?\)\)(.*)";
+		var match = Regex.Match(container, pattern, RegexOptions.IgnorePatternWhitespace);
+		if (match.Success && match.Groups.Count == 4)
+		{
+			var segment = _host.UserSegment;
+			if (String.IsNullOrEmpty(segment))
+				segment = match.Groups[2].Value;
+			return $"{match.Groups[1].Value}{segment}{match.Groups[3]}";
+		}	
+		return container;
+	}
+
 	async Task<Object> SaveFilesAzureStorage(RequestFile ru, ExpandoObject prms, HttpFileCollectionBase files)
 	{
-		AttachmentUpdateInfo ii = new AttachmentUpdateInfo()
+		AttachmentUpdateInfo ii = new()
 		{
 			UserId = prms.Get<Int64>("UserId")
 		};
@@ -266,12 +277,14 @@ public partial class BaseController
 				azureStream = CompressImage(file.InputStream, file.ContentType, ru.imageCompress.quality);
 			}
 
-			await azureClient.Put(ru.azureSource, ru.container, blobName, azureStream, azureStream.Length);
+			var container = ResolveAzureContainer(ru.container).ToLowerInvariant();
+
+			await azureClient.Put(ru.azureSource, container, blobName, azureStream, azureStream.Length);
 
 			ii.Name = Path.GetFileName(file.FileName);
 			ii.Mime = file.ContentType;
 			ii.Stream = null;
-			ii.BlobName = $"{ru.container}/{blobName}";
+			ii.BlobName = $"{container}/{blobName}";
 			var result = await _dbContext.ExecuteAndLoadAsync<AttachmentUpdateInfo, AttachmentUpdateOutput>(ru.CurrentSource, ru.FileProcedureUpdate, ii);
 			resultList.Add(new AttachmentUpdateIdToken()
 			{
@@ -292,7 +305,7 @@ public partial class BaseController
 
 		ru.CheckPermissions(_userStateManager?.GetUserPermissions(), _host.IsDebugConfiguration);
 
-		ExpandoObject loadPrms = new ExpandoObject();
+		ExpandoObject loadPrms = new();
 		setParams?.Invoke(loadPrms);
 		loadPrms.Set("Id", ru.Id);
 		loadPrms.RemoveKeys("export,Export,token,Token");
@@ -350,7 +363,8 @@ public partial class BaseController
 					{
 						Mime = srres.ContentType,
 						Stream = srres.Stream,
-                        SkipToken =  true
+                        SkipToken =  true,
+						Name = srres.FileName
                     };
                 }
             default:

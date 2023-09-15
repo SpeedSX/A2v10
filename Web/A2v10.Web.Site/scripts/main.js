@@ -76,7 +76,7 @@
 	*/
 
 })();
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2018 Oleksandr Kukhtin. All rights reserved.
 
 // 20181201-7379
 // services/locale.js
@@ -198,7 +198,7 @@ app.modules['std:const'] = function () {
 
 // Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20230224-7921
+// 20230814-7943
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -243,6 +243,7 @@ app.modules['std:utils'] = function () {
 		eval: evaluate,
 		simpleEval: simpleEval,
 		format: format,
+		convertToString,
 		toNumber,
 		parse: parse,
 		getStringId,
@@ -520,6 +521,15 @@ app.modules['std:utils'] = function () {
 		return formatDate(date);
 	}
 
+	function convertToString(obj) {
+		if (!obj)
+			return '';
+		if (isObjectExact(obj) && 'Name' in obj)
+			return obj.Name;
+		else if (isDate(obj))
+			return formatDate(obj);
+		return '' + val;
+	}
 
 	function format(obj, dataType, opts) {
 		opts = opts || {};
@@ -529,6 +539,7 @@ app.modules['std:utils'] = function () {
 			return '';
 		switch (dataType) {
 			case "DateTime":
+				if (!obj) return '';
 				if (!isDate(obj)) {
 					console.error(`Invalid Date for utils.format (${obj})`);
 					return obj;
@@ -539,6 +550,7 @@ app.modules['std:utils'] = function () {
 					return formatDateWithFormat(obj, opts.format);
 				return formatDate(obj) + ' ' + formatTime(obj);
 			case "Date":
+				if (!obj) return '';
 				if (isString(obj))
 					obj = string2Date(obj);
 				if (!isDate(obj)) {
@@ -735,6 +747,7 @@ app.modules['std:utils'] = function () {
 	}
 
 	function dateIsZero(d1) {
+		if (d1 === null) return true;
 		if (!isDate(d1)) return false;
 		return dateEqual(d1, dateZero());
 	}
@@ -1016,7 +1029,8 @@ app.modules['std:utils'] = function () {
 			events: assign(src.events, tml.events),
 			defaults: assign(src.defaults, tml.defaults),
 			commands: assign(src.commands, tml.commands),
-			delegates: assign(src.delegates, tml.delegates)
+			delegates: assign(src.delegates, tml.delegates),
+			options: assign(src.options, tml.options)
 		});
 	}
 };
@@ -1572,9 +1586,9 @@ app.modules['std:period'] = function () {
 };
 
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Oleksandr Kukhtin. All rights reserved.
 
-// 20210211-7747
+// 20210823-7842
 /* services/modelinfo.js */
 
 app.modules['std:modelInfo'] = function () {
@@ -1611,7 +1625,10 @@ app.modules['std:modelInfo'] = function () {
 		let x = { pageSize: mi.PageSize, offset: mi.Offset, dir: mi.SortDir, order: mi.SortOrder, group: mi.GroupBy };
 		if (mi.Filter) {
 			for (let p in mi.Filter) {
-				x[p] = mi.Filter[p];
+				let fv = mi.Filter[p];
+				if (fv && fv.call)
+					fv = fv.call(this);
+				x[p] = fv;
 			}
 		}
 		return x;
@@ -1704,9 +1721,9 @@ app.modules['std:modelInfo'] = function () {
 };
 
 
-// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20221124-7907
+// 20230518-7933
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1864,7 +1881,7 @@ app.modules['std:http'] = function () {
 					selector.innerHTML = srcElem ? srcElem.outerHTML : '';
 					if (elemId && !document.getElementById(elemId)) {
 						selector.innerHTML = '';
-						resolve(false);
+						resolve(false, null);
 						return;
 					}
 					for (let i = 0; i < rdoc.scripts.length; i++) {
@@ -1880,8 +1897,9 @@ app.modules['std:http'] = function () {
 					}
 
 					let fec = selector.firstElementChild;
+					let ve = null;
 					if (fec && fec.__vue__) {
-						let ve = fec.__vue__;
+						ve = fec.__vue__;
 						ve.$data.__baseUrl__ = baseUrl || urlTools.normalizeRoot(url);
 						// save initial search
 						ve.$data.__baseQuery__ = urlTools.parseUrlAndQuery(url).query;
@@ -1892,7 +1910,7 @@ app.modules['std:http'] = function () {
 						}
 					}
 					rdoc.body.remove();
-					resolve(true);
+					resolve(ve);
 					eventBus.$emit('endLoad');
 				})
 				.catch(function (error) {
@@ -2388,7 +2406,7 @@ app.modules['std:validators'] = function () {
 
 // Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20230318-7922*/
+/*20230807-7941*/
 /* services/impl/array.js */
 
 app.modules['std:impl:array'] = function () {
@@ -2491,14 +2509,19 @@ app.modules['std:impl:array'] = function () {
 
 	function addResize(arr) {
 
-		arr.$empty = function () {
-			if (this.$root.isReadOnly)
-				return this;
-			this._root_.$setDirty(true);
+		arr.__empty__ = function () {
+			// without dirty
 			this.splice(0, this.length);
 			if ('$RowCount' in this)
 				this.$RowCount = 0;
 			return this;
+		}
+
+		arr.$empty = function () {
+			if (this.$root.isReadOnly)
+				return this;
+			this._root_.$setDirty(true);
+			return this.__empty__();
 		};
 
 		arr.$append = function (src) {
@@ -2727,6 +2750,7 @@ app.modules['std:impl:array'] = function () {
 	}
 
 	function defineArrayItemProto(elem) {
+
 		let proto = elem.prototype;
 
 		proto.$remove = function () {
@@ -2753,12 +2777,39 @@ app.modules['std:impl:array'] = function () {
 			}
 		};
 
+		proto.$canMove = function (dir) {
+			let arr = this._parent_;
+			if (arr.length < 2) return;
+			let i1 = arr.indexOf(this);
+			if (dir === 'up')
+				return i1 >= 1;
+			else if (dir === 'down')
+				return i1 < arr.length - 1;
+			return false;
+		}
+
+		proto.$move = function(dir) {
+			let arr = this._parent_;
+			if (arr.length < 2) return;
+			let i1 = arr.indexOf(this);
+			let i2 = i1;
+			if (dir === 'up') {
+				if (i1 < 1) return;
+				i1 -= 1;
+			} else if (dir === 'down') {
+				if (i1 >= arr.length - 1) return;
+				i2 += 1;
+			}
+			arr.splice(i1, 2, arr[i2], arr[i1]);
+			arr.$renumberRows();
+			return this;
+		}
 	}
 };
 
 /* Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.*/
 
-/*20230318-7922*/
+/*20230807-7941*/
 // services/datamodel.js
 
 /*
@@ -3186,6 +3237,7 @@ app.modules['std:impl:array'] = function () {
 
 			elem._fireLoad_ = () => {
 				platform.defer(() => {
+					if (!elem.$vm) return;
 					let isRequery = elem.$vm.__isModalRequery();
 					elem.$emit('Model.load', elem, _lastCaller, isRequery);
 					elem._root_.$setDirty(elem._root_.$isCopy ? true : false);
@@ -3205,6 +3257,12 @@ app.modules['std:impl:array'] = function () {
 			elem._fireGlobalPeriodChanged_ = (period) => {
 				elem.$emit('GlobalPeriod.change', elem, period);
 			};
+			elem._fireGlobalAppEvent_ = (ev) => {
+				elem.$emit(ev.event, ev.data);
+			}
+			elem._fireSignalAppEvent_ = (ev) => {
+				elem.$emit("Signal." + ev.event, ev.data);
+			}
 		}
 		if (startTime) {
 			logtime('create root time:', startTime, false);
@@ -3484,6 +3542,14 @@ app.modules['std:impl:array'] = function () {
 		}
 	}
 
+	function getGlobalSaveEvent() {
+		let tml = this.$template;
+		if (!tml) return undefined;
+		let opts = tml.options;
+		if (!opts) return undefined;
+		return opts.globalSaveEvent;
+
+	}
 	function getDelegate(name) {
 		let tml = this.$template;
 		if (!tml || !tml.delegates) {
@@ -3706,7 +3772,7 @@ app.modules['std:impl:array'] = function () {
 
 	function hasErrors(props) {
 		if (!props || !props.length) return false;
-		let errs = this._collectErrors_();
+		let errs = this._allErrors_;
 		if (!errs.length) return false;
 		for (let i = 0; i < errs.length; i++) {
 			let e = errs[i];
@@ -3717,21 +3783,6 @@ app.modules['std:impl:array'] = function () {
 	}
 
 	function collectErrors() {
-		let me = this;
-		if (!me._host_) return me._allErrors_;
-		if (!me._needValidate_) return me._allErrors_;
-		let tml = me.$template;
-		if (!tml) return me._allErrors_;
-		let vals = tml.validators;
-		if (!vals) return me._allErrors_;
-		me._allErrors_.splice(0, me._allErrors_.length);
-		for (var val in vals) {
-			let err1 = validateOneElement(me, val, vals[val]);
-			if (err1) {
-				me._allErrors_.push({ x: val, e: err1 });
-			}
-		}
-		return me._allErrors_;
 	}
 
 	function validateAll(force) {
@@ -3754,16 +3805,35 @@ app.modules['std:impl:array'] = function () {
 			}
 		}
 		logtime('validation time:', startTime);
+		// merge allerrs into
+		// sync arrays:
+		// if me._allErrors_[i] not found in allerrs => remove it
+		let i = me._allErrors_.length;
+		while (i--) {
+			let a = me._allErrors_[i];
+			if (!allerrs.find(n => n.x === a.x))
+				me._allErrors_.splice(i, 1);
+		}
+		// if allerrs[i] not found in me._allErrors_ => append it
+		allerrs.forEach(n => {
+			if (!me._allErrors_.find(a => a.x === n.x))
+				me._allErrors_.push(n);
+		});
+
+
+
 		return allerrs;
 		//console.dir(allerrs);
 	}
 
 	function setDirty(val, path, prop) {
+		if (val === this.$dirty) return;
 		if (this.$root.$readOnly)
 			return;
-		if (path && path.toLowerCase().startsWith('query'))
-			return;
+		this.$root.$emit('Model.dirty.change', val, `${path}.${prop}`);
 		if (isNoDirty(this.$root))
+			return;
+		if (path && path.toLowerCase().startsWith('query'))
 			return;
 		if (path && prop && isSkipDirty(this.$root, `${path}.${prop}`))
 			return;
@@ -3918,10 +3988,10 @@ app.modules['std:impl:array'] = function () {
 		root.prototype._exec_ = executeCommand;
 		root.prototype._canExec_ = canExecuteCommand;
 		root.prototype._delegate_ = getDelegate;
+		root.prototype._globalSaveEvent_ = getGlobalSaveEvent;
 		root.prototype._validate_ = validate;
 		root.prototype._validateAll_ = validateAll;
 		root.prototype.$forceValidate = forceValidateAll;
-		root.prototype._collectErrors_ = collectErrors;
 		root.prototype.$hasErrors = hasErrors;
 		root.prototype.$destroy = destroyRoot;
 		// props cache for t.construct
@@ -4124,9 +4194,9 @@ app.modules['std:popup'] = function () {
 };
 
 
-// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20190307-7460*/
+/*20230629-7939*/
 /* services/mask.js */
 
 app.modules['std:mask'] = function () {
@@ -4479,13 +4549,12 @@ app.modules['std:mask'] = function () {
 
 
 	function fireChange(input) {
-		var evt = document.createEvent('HTMLEvents');
-		evt.initEvent('change', false, true);
+		let evt = new Event('change', { bubbles: false, cancelable: true });
 		input.dispatchEvent(evt);
 	}
 };
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2018 Oleksandr Kukhtin. All rights reserved.
 
 /*20180702-7237*/
 /* services/tools.js */
@@ -4509,7 +4578,7 @@ app.modules['std:tools'] = function () {
 	}
 };
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Oleksandr Kukhtin. All rights reserved.
 
 // 20201004-7806
 /* services/html.js */
@@ -5334,9 +5403,9 @@ Vue.component('validator-control', {
     }
 });
 */
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20220110-7819*/
+/*20230710-7939*/
 /*components/textbox.js*/
 
 /* password-- fake fields are a workaround for chrome autofill getting the wrong fields -->*/
@@ -5359,6 +5428,7 @@ Vue.component('validator-control', {
 				:class="inputClass" :placeholder="placeholder" :disabled="disabled" :tabindex="tabIndex" :maxlength="maxLength" :spellcheck="spellCheck"/>
 		<slot></slot>
 		<a class="a2-hyperlink add-on a2-inline" href="" @click.stop.prevent="dummy" v-if=hasFilter><i class="ico ico-filter-outline"></i></a>
+		<a class="a2-hyperlink add-on a2-inline" href="" @click.stop.prevent="dummy" v-if=searchVisible><i class="ico ico-search"></i></a>
 		<a class="a2-hyperlink add-on a2-inline" tabindex="-1" href="" @click.stop.prevent="clear" v-if="clearVisible"><i class="ico ico-clear"></i></a>
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
 	</div>
@@ -5423,6 +5493,7 @@ Vue.component('validator-control', {
 			enterCommand: Function,
 			hasClear: Boolean,
 			hasFilter: Boolean,
+			hasSearch: Boolean,
 			filters: Array
 		},
 		computed: {
@@ -5431,6 +5502,10 @@ Vue.component('validator-control', {
 			},
 			autocompleteText() {
 				return this.password ? 'new-password' : 'off';
+			},
+			searchVisible() {
+				if (this.clearVisible) return false;
+				return this.hasSearch;
 			},
 			clearVisible() {
 				if (!this.hasClear) return false;
@@ -5545,8 +5620,7 @@ Vue.component('validator-control', {
 				let inp = this.$refs.input;
 				if (!inp) return;
 				// send for auto size
-				var evt = document.createEvent('HTMLEvents');
-				evt.initEvent('autosize', false, true);
+				let evt = new Event('autosize', { bubbles: false, cancelable: true });
 				inp.dispatchEvent(evt);
 			}
 		}
@@ -5587,9 +5661,9 @@ Vue.component('validator-control', {
 	app.components['static', staticControl];
 
 })();
-// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20220627-7853*/
+/*20230713-7939*/
 /*components/combobox.js */
 
 (function () {
@@ -5609,10 +5683,10 @@ Vue.component('validator-control', {
 				<optgroup v-for="(grp, grpIndex) in itemsSourceGroup" :key="grpIndex" v-if="groupby"
 					:label="grp.name">
 					<option v-for="(cmb, cmbIndex) in grp.items" :key="grpIndex + '_' + cmbIndex"
-						v-text="getName(cmb, true)" :value="getValue(cmb)"></option>
+						v-text="getName(cmb, true)" :value="getValue(cmb)" :class="getClass(cmb)"></option>
 				</optgroup>
 				<option v-for="(cmb, cmbIndex) in itemsSource" :key="cmbIndex" v-if="!groupby"
-					v-text="getName(cmb, true)" :value="getValue(cmb)"></option>
+					v-text="getName(cmb, true)" :value="getValue(cmb)" :class="getClass(cmb)"></option>
 			</slot>
 		</select>
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
@@ -5645,6 +5719,7 @@ Vue.component('validator-control', {
 			propToValidate: String,
 			nameProp: String,
 			valueProp: String,
+			boldProp: String,
 			showvalue: Boolean,
 			align: String,
 			groupby : String
@@ -5654,7 +5729,7 @@ Vue.component('validator-control', {
 				get() {
 					if (this.itemsSource.length === 0 && this.item) {
 						let itemval = this.item[this.prop];
-						if (itemval && itemval.$empty)
+						if (itemval && itemval.$empty && !itemval.$isEmpty)
 							itemval.$empty();
 					}
 					return this.getComboValue();
@@ -5685,6 +5760,10 @@ Vue.component('validator-control', {
 			getValue(itm) {
 				let v = this.valueProp ? utils.eval(itm, this.valueProp) : itm;
 				return v;
+			},
+			getClass(itm) {
+				return this.boldProp ?
+					(utils.eval(itm, this.boldProp) ? 'bold' : undefined) : undefined;
 			},
 			getWrapText() {
 				return this.showvalue ? this.getComboValue() : this.getText();
@@ -5738,9 +5817,9 @@ Vue.component('validator-control', {
 		}
 	});
 })();
-// Copyright © 2015-2020 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20200109-7704
+// 20230809-7941
 // components/calendar.js
 
 (function () {
@@ -5785,7 +5864,8 @@ Vue.component('validator-control', {
 			setDay: Function,
 			getDayClass: Function,
 			hover: Function,
-			view: String
+			view: String,
+			currentModel: Date
 		},
 		computed: {
 			isDayView() {
@@ -5892,7 +5972,8 @@ Vue.component('validator-control', {
 			},
 			monthClass(day) {
 				let cls = '';
-				if (day.getFullYear() === this.model.getFullYear() && day.getMonth() === this.model.getMonth())
+				let cm = this.currentModel || this.model;
+				if (day.getFullYear() === cm.getFullYear() && day.getMonth() === cm.getMonth())
 					cls += ' active';
 				return cls;
 			},
@@ -5906,11 +5987,10 @@ Vue.component('validator-control', {
 		}
 	});
 })();
-// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20221027-7902
+// 20230911-7946
 // components/datepicker.js
-
 
 (function () {
 
@@ -5928,11 +6008,12 @@ Vue.component('validator-control', {
 <div :class="cssClass2()" class="date-picker" :test-id="testId">
 	<label v-if="hasLabel"><span v-text="label"/><slot name="hint"/><slot name="link"></slot></label>
 	<div class="input-group"  @click="clickInput($event)">
-		<input v-focus v-model.lazy="model" :class="inputClass" :disabled="inputDisabled"/>
+		<input v-focus v-model.lazy="model" v-if="!isMonth" :class="inputClass" :readonly="inputDisabled"/>
+		<div class="month-wrapper" v-if=isMonth v-text=model></div>
 		<a href @click.stop.prevent="toggle($event)" tabindex="-1"><i class="ico ico-calendar"></i></a>
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
 		<div class="calendar" v-if="isOpen">		
-			<a2-calendar :model="modelDate" :view="view"
+			<a2-calendar :model="viewDate" :view="view" :current-model="modelDate"
 				:set-month="setMonth" :set-day="selectDay" :get-day-class="dayClass"/>
 		</div>
 	</div>
@@ -5951,8 +6032,14 @@ Vue.component('validator-control', {
 		},
 		data() {
 			return {
-				isOpen: false
+				isOpen: false,
+				viewDate: null
 			};
+		},
+		watch: {
+			modelDate() {
+				this.viewDate = this.modelDate;
+			}
 		},
 		methods: {
 			toggle(ev) {
@@ -5961,9 +6048,13 @@ Vue.component('validator-control', {
 					// close other popups
 					eventBus.$emit('closeAllPopups');
 					if (utils.date.isZero(this.modelDate))
-						this.item[this.prop] = utils.date.today();
+						this.updateModel(utils.date.today());
 				}
 				this.isOpen = !this.isOpen;
+			},
+			updateModel(date) {
+				this.item[this.prop] = date;
+				this.viewDate = date;
 			},
 			fitDate(dt) {
 				let du = utils.date;
@@ -5983,7 +6074,7 @@ Vue.component('validator-control', {
 				}
 			},
 			setMonth(dt) {
-				this.setDate(dt);
+				this.viewDate = dt;
 			},
 			selectDay(day) {
 				var dt = new Date(Date.UTC(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0));
@@ -5995,7 +6086,7 @@ Vue.component('validator-control', {
 				let md = this.modelDate;
 				let nd = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), md.getUTCHours(), md.getUTCMinutes(), 0, 0));
 				nd = this.fitDate(nd);
-				this.item[this.prop] = nd;
+				this.updateModel(nd);
 			},
 			dayClass(day) {
 				let cls = '';
@@ -6004,7 +6095,7 @@ Vue.component('validator-control', {
 					cls += ' today';
 				if (tls.equal(day, this.modelDate))
 					cls += ' active';
-				if (day.getMonth() !== this.modelDate.getMonth())
+				if (day.getMonth() !== this.viewDate.getMonth())
 					cls += " other";
 				return cls;
 			},
@@ -6022,6 +6113,9 @@ Vue.component('validator-control', {
 			modelDate() {
 				return this.item[this.prop];
 			},
+			isMonth() {
+				return this.view === 'month';
+			},
 			inputDisabled() {
 				return this.disabled || this.view === 'month';
 			},
@@ -6038,7 +6132,7 @@ Vue.component('validator-control', {
 					let md = utils.date.parse(str, this.yearCutOff);
 					md = this.fitDate(md);
 					if (utils.date.isZero(md)) {
-						this.item[this.prop] = md;
+						this.updateModel(md);
 						this.isOpen = false;
 					} else {
 						this.setDate(md);
@@ -6047,6 +6141,7 @@ Vue.component('validator-control', {
 			}
 		},
 		mounted() {
+			this.viewDate = this.modelDate;
 			popup.registerPopup(this.$el);
 			this.$el._close = this.__clickOutside;
 		},
@@ -6371,9 +6466,143 @@ Vue.component('validator-control', {
 		}
 	});
 })();
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2019-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20210729-7798
+// 20230829-7945
+// components/colorcombobox.js*/
+
+(function () {
+
+	const popup = require('std:popup');
+	const eventBus = require('std:eventBus');
+	const platform = require('std:platform');
+	const utils = require('std:utils');
+
+	const colorComboboxTemplate =
+`<div class="color-picker" :class="cssClass()" :test-id="testId">
+	<label v-if="hasLabel"><span v-text="label"/><slot name="hint"/><slot name="link"></slot></label>
+	<div class="input-group">
+		<div v-focus tabindex="0" @click.stop.prevent="toggle"
+				@keydown="keydown" class="color-picker-wrapper">
+			<span class="tag-label" :class="color" v-text="text"/>
+			<span class="caret"/>
+		</div>
+		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
+		<div class="color-picker-pane" v-show="isOpen">
+			<div class="color-picker-list">
+				<span class="tag-label" :class="itemClass(itm)" @mousedown.prevent="hit(itm)"
+					v-for="(itm, ix) in itemsSource" :key="ix" v-text="itemText(itm)">
+				</span>
+			</div>
+		</div>
+	</div>
+	<slot name="popover"></slot>
+	<span class="descr" v-if="hasDescr" v-text="description"></span>
+</div>
+`;
+
+	const baseControl = component('control');
+
+	Vue.component('a2-color-combobox', {
+		extends: baseControl,
+		props: {
+			item: {
+				type: Object, default() { return {}; }
+			},
+			itemsSource: Array,
+			prop: String,
+			nameProp: String,
+			colorProp: String,
+			valueProp: String
+		},
+		data() {
+			return {
+				isOpen: false
+			};
+		},
+		template: colorComboboxTemplate,
+		computed: {
+			text() {
+				let cv = this.cmbValue;
+				return cv ? cv[this.nameProp] : '';
+			},
+			color() {
+				let cv = this.cmbValue;
+				return cv ? (cv[this.colorProp] || 'transparent') : 'transparent';
+			},
+			cmbValue: {
+				get() {
+					let v = this.item[this.prop];
+					if (utils.isObjectExact(v))
+						return v;
+					return this.itemsSource.find(s => s.$id === v);
+				},
+				set(val) {
+					let v = this.item[this.prop];
+					if (utils.isObjectExact(v))
+						platform.set(this.item, this.prop, val);
+					else
+						this.item[this.prop] = val[this.valueProp];
+				}
+			}
+		},
+		methods: {
+			itemText(itm) {
+				return itm[this.nameProp];
+			},
+			itemClass(itm) {
+				return itm[this.colorProp];
+			},
+			keydown(event) {
+				event.stopPropagation();
+				if (this.disabled) return;
+				let items = this.itemsSource;
+				switch (event.which) {
+					case 40: // down
+						event.preventDefault();
+						var ix = items.indexOf(this.cmbValue);
+						if (ix < items.length - 1)
+							this.cmbValue = items[ix + 1];
+						else
+							this.cmbValue = items[0];
+						break;
+					case 38: // up
+						event.preventDefault();
+						var ix = items.indexOf(this.cmbValue);
+						if (ix > 0)
+							this.cmbValue = items[ix - 1];
+						else
+							this.cmbValue = items[items.length - 1];
+						break;
+				}
+			},
+			toggle() {
+				if (this.disabled) return;
+				if (!this.isOpen) {
+					eventBus.$emit('closeAllPopups');
+				}
+				this.isOpen = !this.isOpen;
+			},
+			hit(itm) {
+				this.cmbValue = itm;
+				this.isOpen = false;
+			},
+			__clickOutside() {
+				this.isOpen = false;
+			}
+		},
+		mounted() {
+			popup.registerPopup(this.$el);
+			this.$el._close = this.__clickOutside;
+		},
+		beforeDestroy() {
+			popup.unregisterPopup(this.$el);
+		}
+	});
+})();
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
+
+// 20230705-7939
 // components/periodpicker.js
 
 
@@ -6387,7 +6616,6 @@ Vue.component('validator-control', {
 	const du = utils.date;
 
 	const baseControl = component('control');
-	const locale = window.$$locale;
 
 	const DEFAULT_DEBOUNCE = 150;
 
@@ -6558,7 +6786,10 @@ Vue.component('validator-control', {
 					this.callback(this.period);
 				let root = this.item.$root;
 				if (!root) return;
-				let eventName = this.item._path_ + '.' + this.prop + '.change';
+				let path = this.item._path_ || 'global';
+				let eventName = `${path}.${this.prop}.change`;
+				if (root && root.$setDirty)
+					root.$setDirty(true, path, this.prop);
 				root.$emit(eventName, this.item, this.period, null);
 			},
 			toggle(ev) {
@@ -6622,7 +6853,7 @@ Vue.component('validator-control', {
 
 // Copyright © 2015-2023 Alex Kukhtin. All rights reserved.
 
-/*20230217-7921*/
+/*20230613-7937*/
 // components/selector.js
 
 (function selector_component() {
@@ -6652,10 +6883,10 @@ Vue.component('validator-control', {
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
 		<div class="selector-pane" v-if="isOpen" ref="pane" :class="paneClass">
 			<div class="selector-body" :style="bodyStyle">
-				<slot name="pane" :items="items" :is-item-active="isItemActive" :item-name="itemName" :hit="hit" :slotStyle="slotStyle">
+				<slot name="pane" :items="items" :is-item-active="isItemActive" :item-name="itemName" :hit="hit" :max-chars="maxChars" :slotStyle="slotStyle">
 					<ul class="selector-ul">
 						<li @mousedown.prevent="hit(itm)" :class="{active: isItemActive(itmIndex)}"
-							v-for="(itm, itmIndex) in items" :key="itmIndex" v-text="itemName(itm)">}</li>
+							v-for="(itm, itmIndex) in items" :key="itmIndex" v-text="itemName(itm)"></li>
 					</ul>
 				</slot>
 			</div>
@@ -6691,7 +6922,8 @@ Vue.component('validator-control', {
 			hasClear: Boolean,
 			mode: String,
 			fetchCommand: String,
-			fetchCommandData: Object
+			fetchCommandData: Object,
+			maxChars: Number
 		},
 		data() {
 			return {
@@ -6809,7 +7041,10 @@ Vue.component('validator-control', {
 				return ix === this.current;
 			},
 			itemName(itm) {
-				return utils.simpleEval(itm, this.display);
+				let v = utils.simpleEval(itm, this.display);
+				if (this.maxChars)
+					return utils.text.maxChars(v, this.maxChars);
+				return v;
 			},
 			blur() {
 				let text = this.query;
@@ -7030,9 +7265,9 @@ Vue.component('validator-control', {
 		}
 	});
 })();
-// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20221107-7903
+// 20230807-7941
 // components/datagrid.js*/
 
 (function () {
@@ -7064,7 +7299,7 @@ Vue.component('validator-control', {
 		</colgroup>
 		<thead>
 			<tr v-show="isHeaderVisible">
-				<th v-if="isMarkCell" class="marker"><div v-if="fixedHeader" class="h-holder">&#160;</div></th>
+				<th v-if="isMarkCell" class="marker"><div v-if=fixedHeader class="h-fill"></div><div v-if=fixedHeader class="h-holder">&#160;</div></th>
 				<th v-if="isRowDetailsCell" class="details-marker"><div v-if="fixedHeader" class="h-holder">&#160;</div></th>
 				<slot></slot>
 			</tr>
@@ -7136,8 +7371,11 @@ Vue.component('validator-control', {
 	const dataGridColumnTemplate = `
 <th :class="cssClass" @click.prevent="doSort">
 	<div class="h-fill" v-if="fixedHeader" v-text="headerText">
-	</div><div class="h-holder">
-		<slot>{{headerText}}</slot>
+	</div>
+	<div class="h-holder">
+		<slot><label v-if=checkAll class="like-checkbox" :class="checkAllClass" @click=doCheckAll><span></span></label>
+			<span v-else v-text="headerText"></span>
+		</slot>
 	</div>
 </th>
 `;
@@ -7167,7 +7405,9 @@ Vue.component('validator-control', {
 			width: String,
 			fit: Boolean,
 			wrap: String,
-			command: Object
+			command: Object,
+			maxChars: Number,
+			checkAll: String
 		},
 		created() {
 			this.$parent.$addColumn(this);
@@ -7199,6 +7439,14 @@ Vue.component('validator-control', {
 			classAlign() {
 				return this.align !== 'left' ? (' text-' + this.align).toLowerCase() : '';
 			},
+			checkAllClass() {
+				let state = this.$parent.$checkAllState(this.checkAll);
+				if (state === 1)
+					return 'checked'; // indeterminate';
+				else if (state === 2)
+					return 'indeterminate';
+				return undefined;
+			},
 			cssClass() {
 				let cssClass = this.classAlign;
 				if (this.isSortable) {
@@ -7206,6 +7454,8 @@ Vue.component('validator-control', {
 					if (this.dir)
 						cssClass += ' ' + this.dir;
 				}
+				if (this.checkAll)
+					cssClass += ' check-all'
 				return cssClass;
 			},
 			headerText() {
@@ -7223,6 +7473,10 @@ Vue.component('validator-control', {
 				if (!this.isSortable)
 					return;
 				this.$parent.doSort(this.sortProperty);
+			},
+			doCheckAll() {
+				if (!this.checkAll) return;
+				this.$parent.$checkAll(this.checkAll);
 			},
 			cellCssClass(row, editable) {
 				let cssClass = this.classAlign;
@@ -7390,7 +7644,12 @@ Vue.component('validator-control', {
 			}
 
 			let content = utils.eval(row, col.content, col.dataType, col.evalOpts);
-			let chElems = [h('span', { 'class': { 'dg-cell': true, 'negative-red': isNegativeRed(col) } }, content)];
+			let spanProps = { 'class': { 'dg-cell': true, 'negative-red': isNegativeRed(col) } };
+			if (col.maxChars) {
+				spanProps.attrs = { title: content };
+				content = utils.text.maxChars(content, col.maxChars);
+			}
+			let chElems = [h('span', spanProps, content)];
 			let icoSingle = !col.content ? ' ico-single' : '';
 			if (col.icon)
 				chElems.unshift(h('i', { 'class': 'ico ico-' + col.icon + icoSingle }));
@@ -7850,6 +8109,29 @@ Vue.component('validator-control', {
 				// lev 1-based
 				for (var gr of this.$groups)
 					gr.expanded = gr.level < lev;
+			},
+			$checkAll(path) {
+				if (!this.$items) return;
+				let s = this.$checkAllState(path);
+				let val = s != 1;
+				this.$items.forEach(itm => itm[path] = val);
+			},
+			$checkAllState(path) {
+				// 0 - unchecked; 1 - checked, 2-indeterminate
+				if (!this.$items) return 0;
+				let checked = 0;
+				let unchecked = 0;
+				this.$items.forEach(itm => {
+					if (itm[path])
+						checked += 1;
+					else
+						unchecked += 1;
+				});
+				if (checked === 0)
+					return 0;
+				else if (unchecked === 0)
+					return 1;
+				return 2;
 			},
 			__autoSelect() {
 				if (!this.autoSelect || !this.$items || !this.$items.length) return;
@@ -9359,13 +9641,10 @@ TODO:
 	});
 
 })();
-// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20190328-7473
+// 20230811-7943
 // components/list.js
-
-/* TODO:
-*/
 
 (function () {
 
@@ -9380,7 +9659,7 @@ TODO:
 <ul class="a2-list" v-lazy="itemsSource">
 	<template v-if="itemsSource">
 		<li class="a2-list-item" tabindex="1" :class="cssClass(listItem)" v-for="(listItem, listItemIndex) in source" :key="listItemIndex" 
-				@mousedown.prevent="select(listItem)" @keydown="keyDown" 
+				@mousedown="select(listItem)" @keydown="keyDown" 
 				ref="li" v-on:dblclick.prevent="doDblClick">
 			<span v-if="listItem.__group" v-text="listItem.__group"></span>
 			<slot name="items" :item="listItem" v-if="!listItem.__group"/>
@@ -9497,13 +9776,13 @@ TODO:
 						console.error('Id not found in Root.modelInfo');
 						return;
 					}
-					let fe = src.find(itm => itm.$id === rootId);
-					if (!fe) {
-						console.error(`Element with id=${rootId} not found`);
-						fe = src[0];
+					let fe = src[0];
+					if (rootId) {
+						fe = src.find(itm => itm.$id === rootId);
+						if (!fe) 
+							console.error(`Element with id=${rootId} not found`);
 					}
-					if (fe)
-						this.select(fe);
+					if (fe) this.select(fe);
 				}
 			},
 			keyDown(e) {
@@ -11489,20 +11768,26 @@ Vue.component('a2-panel', {
 		}
 	});
 })();
-// Copyright © 2022 Alex Kukhtin. All rights reserved.
+// Copyright © 2022-2023 Olekdsandr Kukhtin. All rights reserved.
 
-// 20221112-7905
+// 20230625-7939
 // components/treegrid.js
 
 (function () {
 
+	const utils = require('std:utils');
+
 	let gridTemplate = `
 <table v-lazy="root">
-	<colgroup><slot name="columns" v-bind:that="that"></slot></colgroup>
-	<thead><tr><slot name="header" v-bind:that="that"></slot></tr></thead>
+	<colgroup><col class="fit c-m" v-if=isMarkCell></col><slot name="columns" v-bind:that="that"></slot></colgroup>
+	<thead><tr>
+		<th class="c-m" v-if=isMarkCell :class=gridLines></th>
+		<slot name="header" v-bind:that="that"></slot>
+	</tr></thead>
 	<tbody>
 		<tr v-for="(itm, ix) in rows" :class="rowClass(itm)" 
-				@click.stop.prevent="select(itm)" v-on:dblclick.prevent="dblClick($event, itm)">
+				@click.stop="select(itm)" v-on:dblclick.prevent="dblClick($event, itm)">
+			<td class="c-m" v-if=isMarkCell :class="rowMarkClass(itm)"></td>
 			<slot name="row" v-bind:itm="itm.elem" v-bind:that="that"></slot>
 		</tr>
 	</tbody>
@@ -11515,7 +11800,11 @@ Vue.component('a2-panel', {
 			root: [Object, Array],
 			item: String,
 			folderStyle: String,
-			doubleclick: Function
+			doubleclick: Function,
+			isFolder: String,
+			mark: String,
+			markStyle: String,
+			gridLines: String
 		},
 		computed: {
 			rows() {
@@ -11549,6 +11838,12 @@ Vue.component('a2-panel', {
 			},
 			that() {
 				return this;
+			},
+			isMarkCell() {
+				return this.markStyle === 'marker' || this.markStyle === 'both';
+			},
+			isMarkRow() {
+				return this.markStyle === 'row' || this.markStyle === 'both';
 			}
 		},
 		watch: {
@@ -11573,13 +11868,29 @@ Vue.component('a2-panel', {
 				let ch = itm[this.item];
 				return ch && ch.length > 0;
 			},
+			isRowFolder(elm) {
+				if (this.hasChildren(elm))
+					return true;
+				if (this.isFolder)
+					return utils.simpleEval(elm, this.isFolder);
+				return '';
+			},
+			rowMarkClass(itm) {
+				if (this.isMarkRow && this.mark)
+					return utils.simpleEval(itm.elem, this.mark) + ' ' + this.gridLines;
+				return this.gridLines;
+			},
+			rowMarker(itm) {
+				if (this.isMarkRow && this.mark)
+					return utils.simpleEval(itm.elem, this.mark);
+				return '';
+			},
 			rowClass(itm) {
-				let cls = `lev lev-${itm.level}`;
+				let cls = `lev lev-${itm.level} ` + this.rowMarker(itm);
 				if (itm.elem.$selected)
 					cls += ' active';
-				if (this.hasChildren(itm.elem) && this.folderStyle !== 'none')
+				if (this.isRowFolder(itm.elem) && this.folderStyle !== 'none')
 					cls += ' ' + this.folderStyle;
-					
 				return cls;
 			},
 			toggleClass(itm) {
@@ -11612,7 +11923,7 @@ Vue.component('a2-panel', {
 
 // Copyright © 2022-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20220917-7920
+// 20230807-7941
 // components/dashboard.js
 
 (function () {
@@ -11903,8 +12214,8 @@ Vue.component('a2-panel', {
 				let rs = window.getComputedStyle(this.$refs.dash);
 				let colSize = parseFloat(rs.gridTemplateColumns.split(' ')[0]);
 				let rowSize = parseFloat(rs.gridTemplateRows.split(' ')[0]);
-				let colGap = parseFloat(rs.gridColumnGap);
-				let rowGap = parseFloat(rs.gridRowGap);
+				let colGap = parseFloat(rs.columnGap);
+				let rowGap = parseFloat(rs.rowGap);
 				img.style.width = (colSize * el.colSpan + (el.colSpan - 1) * colGap) + 'px';
 				img.style.height = (rowSize * el.rowSpan + (el.rowSpan - 1) * rowGap) + 'px';
 				return img;
@@ -11991,7 +12302,7 @@ Vue.component('a2-panel', {
 })();
 // Copyright © 2019-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20230122-7918
+// 20230903-7941
 // components/tagscontrol.js*/
 
 (function () {
@@ -12008,9 +12319,9 @@ Vue.component('a2-panel', {
 		<div class="tags-placeholder" v-else v-text="placeholder"></div>
 		<div class="tags-pane" v-if=isOpen>
 			<ul class="tags-pane-items">
-				<li v-for="(itm, ix) in actualItemsSource" :key="ix" class="tag-body tag-md" :class="tagColor(itm)">
-					<span v-text="tagName(itm)" 
-						@click.stop.prevent="addTag(itm)"/>
+				<li v-for="(itm, ix) in actualItemsSource" :key="ix" class="tag-body tag-md" :class="tagColor(itm)"
+					@click.stop.prevent="addTag(itm)">
+					<span v-text="tagName(itm)"/>
 				</li>
 			</ul>
 			<div class="tags-settings" v-if="!disabled">
@@ -12042,9 +12353,9 @@ Vue.component('a2-panel', {
 		<div class="tags-placeholder" v-else v-text="placeholder"></div>
 		<div class="tags-pane" v-if=isOpen>
 			<ul class="tags-pane-items">
-				<li v-for="(itm, ix) in actualItemsSource" :key="ix" class="tag-body tag-md" :class="tagColor(itm)">
-					<span v-text="tagName(itm)" 
-						@click.stop.prevent="addTag(itm)"/>
+				<li v-for="(itm, ix) in actualItemsSource" :key="ix" class="tag-body tag-md" :class="tagColor(itm)"
+						@click.stop.prevent="addTag(itm)">
+					<span v-text="tagName(itm)"/>
 				</li>
 			</ul>
 		</div>
@@ -12232,7 +12543,7 @@ Vue.component('a2-panel', {
 
 // Copyright © 2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20230325-7923
+// 20230809-7941
 // components/kanban.js
 
 (function () {
@@ -12286,6 +12597,10 @@ Vue.component('a2-panel', {
 				return this.items.filter(itm => itm[this.stateProp].$id === id);
 			},
 			dragStart(ev, card) {
+				if (!this.dropDelegate) {
+					ev.preventDefault();
+					return;
+				}
 				ev.dataTransfer.effectAllowed = "move";
 				this.currentElem = card;
 			},
@@ -12465,7 +12780,7 @@ Vue.directive('disable', {
 	});
 
 })();
-// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Oleksandr Kukhtin. All rights reserved.
 
 /*20190721-7507*/
 /* directives/focus.js */
@@ -12819,7 +13134,7 @@ Vue.directive('resize', {
 
 // Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20230224-7921*/
+/*20230830-7947*/
 // controllers/base.js
 
 (function () {
@@ -13025,6 +13340,12 @@ Vue.directive('resize', {
 				if (this.__saveEvent__)
 					this.$caller.$data.$emit(this.__saveEvent__, this.$data);
 			},
+			$emitGlobal(event, data) {
+				eventBus.$emit('globalAppEvent', { event, data });
+			},
+			$emitParentTab(event, data) {
+				eventBus.$emit('toParentTab', { event, source: this, data });
+			},
 			$emitCaller(event, ...arr) {
 				if (this.$caller)
 					this.$caller.$data.$emit(event, ...arr);
@@ -13039,6 +13360,32 @@ Vue.directive('resize', {
 					for (let k of Object.keys(obj))
 						obj[k] = null;
 				}
+			},
+			$savePart(dataToSave, urlToSave, dialog) {
+				if (this.$data.$readOnly)
+					return;
+				eventBus.$emit('closeAllPopups');
+				let self = this;
+				let root = window.$$rootUrl;
+				const routing = require('std:routing'); // defer loading
+
+				let url = `${root}/${routing.dataUrl()}/save`;
+				return new Promise(function (resolve, reject) {
+					let baseUrl = urltools.combine(dialog ? '/_dialog' : '/_page', urlToSave);
+					let jsonData = utils.toJson({ baseUrl: baseUrl, data: dataToSave });
+					dataservice.post(url, jsonData).then(function (data) {
+						if (self.__destroyed__) return;
+						if (dataToSave.$merge) {
+							dataToSave.$merge(data, true, true /*only exists*/);
+							resolve(dataToSave); // merged
+						} else
+							resolve(data); // from server
+					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
+						self.$alertUi(msg);
+					});
+				});
 			},
 			$save(opts) {
 				if (this.$data.$readOnly)
@@ -13072,6 +13419,9 @@ Vue.directive('resize', {
 						self.$data.$emit('Model.saved', self.$data);
 						if (self.__saveEvent__)
 							self.$caller.$data.$emit(self.__saveEvent__, self.$data);
+						let globalSaveEvent = self.$data._globalSaveEvent_();
+						if (globalSaveEvent)
+							self.$emitGlobal(globalSaveEvent, self.$data);
 						self.$data.$setDirty(false);
 						// data is a full model. Resolve requires only single element.
 						let dataToResolve;
@@ -13208,12 +13558,12 @@ Vue.directive('resize', {
 				let url = `${root}/${routing.dataUrl()}/reload`;
 				let dat = self.$data;
 
-				let mi = args ? modelInfo.get(args.$ModelInfo) : null;
+				let mi = args ? modelInfo.get.call(this.$data, args.$ModelInfo) : null;
 				if (!args && !mi) {
 					// try to get first $ModelInfo
 					let modInfo = this.$data._findRootModelInfo();
 					if (modInfo) {
-						mi = modelInfo.get(modInfo);
+						mi = modelInfo.get.call(this.$data, modInfo);
 					}
 				}
 
@@ -13230,6 +13580,7 @@ Vue.directive('resize', {
 					let jsonData = utils.toJson(dataToQuery);
 					dataservice.post(url, jsonData).then(function (data) {
 						if (self.__destroyed__) return;
+						eventBus.$emit('pageReloaded', dataToQuery.baseUrl);
 						if (utils.isObject(data)) {
 							dat.$merge(data, true/*checkBindOnce*/);
 							modelInfo.reconcileAll(data.$ModelInfo);
@@ -13251,13 +13602,14 @@ Vue.directive('resize', {
 			async $nodirty(callback) {
 				let wasDirty = this.$data.$dirty;
 				await callback();
-				this.$defer(() => this.$data.$setDirty(wasDirty));
+				if (!this.$data) return;
+				this.$defer(() => this.$data ? this.$data.$setDirty(wasDirty) : undefined);
 			},
-			$requery() {
+			$requery(query) {
 				if (this.inDialog)
 					eventBus.$emit('modalRequery', this.$baseUrl);
 				else
-					eventBus.$emit('requery');
+					eventBus.$emit('requery', this, query);
 			},
 
 			$remove(item, confirm) {
@@ -13349,9 +13701,10 @@ Vue.directive('resize', {
 					if (opts && opts.catchError)
 						throw err;
 					else if (err.indexOf('UI:') === 0)
-						this.$alert(err);
+						this.$alert(err.substring(3).replace('\\n', '\n'));
 					else
 						alert(err);
+					return false;
 				}
 			},
 
@@ -13966,6 +14319,8 @@ Vue.directive('resize', {
 					opts = { dataType: opts };
 				if (!opts.format && !opts.dataType && !opts.mask)
 					return value;
+				if (opts.format === 'ToString')
+					return utils.convertToString(value, opts);
 				if (opts.mask)
 					return value ? mask.getMasked(opts.mask, value) : value;
 				if (opts.dataType)
@@ -14038,25 +14393,17 @@ Vue.directive('resize', {
 				let self = this,
 					root = window.$$rootUrl,
 					url = `${root}/${routing.dataUrl()}/loadlazy`,
-					selfMi = elem[propName].$ModelInfo,
-					parentMi = elem.$parent.$ModelInfo;
+					selfMi = elem[propName].$ModelInfo;
 
-				// HACK. inherit filter from parent modelInfo
-				/*
-				?????
-				if (parentMi && parentMi.Filter) {
-					if (selfMi)
-						modelInfo.mergeFilter(selfMi.Filter, parentMi.Filter);
-					else
-						selfMi = parentMi;
+				if (!selfMi) {
+					let evData = { elem: elem, prop: propName, modelInfo: null };
+					this.$data.$emit('Model.lazy.init', evData);
+					selfMi = evData.modelInfo; // may be changed
 				}
-				*/
 
-				let mi = modelInfo.get(selfMi);
+				let mi = modelInfo.get.call(self.$data, selfMi);
 				let xQuery = urltools.parseUrlAndQuery(self.$baseUrl, mi);
 				let newUrl = xQuery.url + urltools.makeQueryString(mi);
-				//console.dir(newUrl);
-				//let jsonData = utils.toJson({ baseUrl: urltools.replaceUrlQuery(self.$baseUrl, mi), id: elem.$id, prop: propName });
 				let jsonData = utils.toJson({ baseUrl: newUrl, id: elem.$id, prop: propName });
 
 				return new Promise(function (resolve, reject) {
@@ -14068,7 +14415,7 @@ Vue.directive('resize', {
 					dataservice.post(url, jsonData).then(function (data) {
 						if (self.__destroyed__) return;
 						if (propName in data) {
-							arr.$empty();
+							arr.__empty__();
 							for (let el of data[propName])
 								arr.push(arr.$new(el));
 							let rcName = propName + '.$RowCount';
@@ -14198,6 +14545,7 @@ Vue.directive('resize', {
 			__createController__() {
 				let ctrl = {
 					$save: this.$save,
+					$savePart: this.$savePart,
 					$invoke: this.$invoke,
 					$close: this.$close,
 					$modalClose: this.$modalClose,
@@ -14224,6 +14572,8 @@ Vue.directive('resize', {
 					$upload: this.$upload,
 					$emitCaller: this.$emitCaller,
 					$emitSaveEvent: this.$emitSaveEvent,
+					$emitGlobal: this.$emitGlobal,
+					$emitParentTab: this.$emitParentTab,
 					$nodirty: this.$nodirty,
 					$showSidePane: this.$showSidePane
 				};
@@ -14293,6 +14643,14 @@ Vue.directive('resize', {
 			},
 			__global_period_changed__(period) {
 				this.$data._fireGlobalPeriodChanged_(period);
+			},
+			__signalAppEvent__(data) {
+				if (this.$data && this.$data._fireSignalAppEvent_)
+					this.$data._fireSignalAppEvent_(data);
+			},
+			__globalAppEvent__(data) {
+				if (this.$data && this.$data._fireGlobalAppEvent_)
+					this.$data._fireGlobalAppEvent_(data);
 			}
 		},
 		created() {
@@ -14302,12 +14660,17 @@ Vue.directive('resize', {
 			this.$caller = out.caller;
 			this.__destroyed__ = false;
 
+			if (!this.$store && store.create)
+				this.$store = store.create(this);
+
 			eventBus.$on('beginRequest', this.__beginRequest);
 			eventBus.$on('endRequest', this.__endRequest);
 			eventBus.$on('queryChange', this.__queryChange);
 			eventBus.$on('childrenSaved', this.__notified);
 			eventBus.$on('invokeTest', this.__invoke__test__);
 			eventBus.$on('globalPeriodChanged', this.__global_period_changed__);
+			eventBus.$on('globalAppEvent', this.__globalAppEvent__);
+			eventBus.$on('signalEvent', this.__signalAppEvent__);
 
 			this.$on('cwChange', this.__cwChange);
 			this.__asyncCache__ = {};
@@ -14316,7 +14679,8 @@ Vue.directive('resize', {
 				log.time('create time:', __createStartTime, false);
 		},
 		beforeDestroy() {
-			this.$data._fireUnload_();
+			if (this.$data._fireUnload_)
+				this.$data._fireUnload_();
 		},
 		destroyed() {
 			//console.dir('base.js has been destroyed');
@@ -14329,6 +14693,7 @@ Vue.directive('resize', {
 			eventBus.$off('childrenSaved', this.__notified);
 			eventBus.$off('invokeTest', this.__invoke__test__);
 			eventBus.$off('globalPeriodChanged', this.__global_period_changed__);
+			eventBus.$off('globalAppEvent', this.__globalAppEvent__);
 
 			this.$off('cwChange', this.__cwChange);
 			htmlTools.removePrintFrame();
@@ -14623,9 +14988,9 @@ Vue.directive('resize', {
 		pageNavBar: a2NavBarPage
 	};
 })();	
-// Copyright © 2020 Alex Kukhtin. All rights reserved.
+// Copyright © 2020-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20200611-7673*/
+/*20230412-7926*/
 /* controllers/sidebar.js */
 
 (function () {
@@ -14692,11 +15057,10 @@ Vue.directive('resize', {
 					console.error('no top menu found');
 			},
 			itemHref(item) {
+				if (!item.Url)
+					return undefined
 				let top = this.topMenu;
-				if (top) {
-					return urlTools.combine(top.Url, item.Url);
-				}
-				return undefined;
+				return top ? urlTools.combine(top.Url, item.Url) : undefined;
 			},
 			toggle() {
 				this.$parent.sideBarCollapsed = !this.$parent.sideBarCollapsed;
@@ -14718,7 +15082,7 @@ Vue.directive('resize', {
 		template: `
 <div :class="cssClass">
 	<a href role="button" class="ico collapse-handle" @click.prevent="toggle"></a>
-	<div class="side-bar-body" v-if="bodyIsVisible">
+	<div class="side-bar-body advance" v-if="bodyIsVisible">
 		<tree-view :items="sideMenu" :is-active="isActive" :is-group="isGroup" :click="navigate" :get-href="itemHref"
 			:options="{folderSelect: folderSelect, label: 'Name', title: 'Description',
 			subitems: 'Menu', expandAll:true, xtraClass:'ClassName',

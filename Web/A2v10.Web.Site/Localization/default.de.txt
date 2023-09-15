@@ -34,6 +34,8 @@
 @SetNewPassword=Passwortfestlegung
 @InviteEMail=Willkommen!
 @ChangePasswordDisabled=Passwortänderung ist nicht erlaubt
+@InviteUserSubject=Invitation
+@InviteUserBody=<a href="{0}">Click here to continue registration</a>
 ;
 @Home=Home
 @Documents=Dokumente
@@ -96,6 +98,7 @@
 @Locale=de-DE
 @Ok=OK
 @Login=Anmelden
+@UserName=Nutzername
 @LoginPrompt=Systemanmeldung
 @RegisterPrompt=Im System registrieren
 @ForgotPrompt=Passwort zurücksetzen
@@ -136,10 +139,19 @@
 @TryLater=Zu viele Anmeldungsversuche in kurzer Zeit. \ NVersuchen Sie nochmal, sich in fünf Minuten zu registrieren
 @Continue=Fortsetzen
 @ConfirmCode=Bestätigungscode
+@EnterConfirmCode=Bestätigungscode eingeben
 @InvalidConfirmCode=Ungültiger Bestätigungscode
 @EMailAlreadyConfirmed=E-Mail bereits bestätigt
 @LocaleLabel=Schnittstellensprache
 @SendCodeAgain=Code erneut senden
 @ErrorAntiForgery=The request has already been executed in another browser window. The page will reload
 @IHaveCode=Ich habe einen Bestätigungscode
-@AvailableLocales={"uk-UA": "Ukrainisch","ru-RU": "Russisch","en-US": "Englisch","de-DE": "Deutsche"}
+@AvailableLocales={"uk-UA": "Ukrainisch","ru-RU": "Russisch","en-US": "Englisch","de-DE": "Deutsche", "es-ES": "Spanisch"}
+;
+@CloseTabsRight=Tabs auf der rechten Seite schließen
+@CloseOtherTabs=Andere Tabs schließen
+@ReopenClosedTab=Geschlossenes Tab wieder öffnen
+@CloseAllTabs=Alle Tabs schließen
+@OpenTabs=Tabs öffnen
+@RecentlyClosedTabs=Kürzlich geschlossene Tabs
+;

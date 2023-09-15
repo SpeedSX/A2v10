@@ -76,7 +76,7 @@
 	*/
 
 })();
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2018 Oleksandr Kukhtin. All rights reserved.
 
 // 20181201-7379
 // services/locale.js
@@ -177,7 +177,7 @@ app.modules['std:locale'] = function () {
 
 // Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20230224-7921
+// 20230814-7943
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -222,6 +222,7 @@ app.modules['std:utils'] = function () {
 		eval: evaluate,
 		simpleEval: simpleEval,
 		format: format,
+		convertToString,
 		toNumber,
 		parse: parse,
 		getStringId,
@@ -499,6 +500,15 @@ app.modules['std:utils'] = function () {
 		return formatDate(date);
 	}
 
+	function convertToString(obj) {
+		if (!obj)
+			return '';
+		if (isObjectExact(obj) && 'Name' in obj)
+			return obj.Name;
+		else if (isDate(obj))
+			return formatDate(obj);
+		return '' + val;
+	}
 
 	function format(obj, dataType, opts) {
 		opts = opts || {};
@@ -508,6 +518,7 @@ app.modules['std:utils'] = function () {
 			return '';
 		switch (dataType) {
 			case "DateTime":
+				if (!obj) return '';
 				if (!isDate(obj)) {
 					console.error(`Invalid Date for utils.format (${obj})`);
 					return obj;
@@ -518,6 +529,7 @@ app.modules['std:utils'] = function () {
 					return formatDateWithFormat(obj, opts.format);
 				return formatDate(obj) + ' ' + formatTime(obj);
 			case "Date":
+				if (!obj) return '';
 				if (isString(obj))
 					obj = string2Date(obj);
 				if (!isDate(obj)) {
@@ -714,6 +726,7 @@ app.modules['std:utils'] = function () {
 	}
 
 	function dateIsZero(d1) {
+		if (d1 === null) return true;
 		if (!isDate(d1)) return false;
 		return dateEqual(d1, dateZero());
 	}
@@ -995,7 +1008,8 @@ app.modules['std:utils'] = function () {
 			events: assign(src.events, tml.events),
 			defaults: assign(src.defaults, tml.defaults),
 			commands: assign(src.commands, tml.commands),
-			delegates: assign(src.delegates, tml.delegates)
+			delegates: assign(src.delegates, tml.delegates),
+			options: assign(src.options, tml.options)
 		});
 	}
 };
@@ -1550,9 +1564,9 @@ app.modules['std:url'] = function () {
 
 
 
-// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20221124-7907
+// 20230518-7933
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1710,7 +1724,7 @@ app.modules['std:http'] = function () {
 					selector.innerHTML = srcElem ? srcElem.outerHTML : '';
 					if (elemId && !document.getElementById(elemId)) {
 						selector.innerHTML = '';
-						resolve(false);
+						resolve(false, null);
 						return;
 					}
 					for (let i = 0; i < rdoc.scripts.length; i++) {
@@ -1726,8 +1740,9 @@ app.modules['std:http'] = function () {
 					}
 
 					let fec = selector.firstElementChild;
+					let ve = null;
 					if (fec && fec.__vue__) {
-						let ve = fec.__vue__;
+						ve = fec.__vue__;
 						ve.$data.__baseUrl__ = baseUrl || urlTools.normalizeRoot(url);
 						// save initial search
 						ve.$data.__baseQuery__ = urlTools.parseUrlAndQuery(url).query;
@@ -1738,7 +1753,7 @@ app.modules['std:http'] = function () {
 						}
 					}
 					rdoc.body.remove();
-					resolve(true);
+					resolve(ve);
 					eventBus.$emit('endLoad');
 				})
 				.catch(function (error) {
@@ -2916,9 +2931,9 @@ const maccel = require('std:accel');
 	});
 })();
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Oleksandr Kukhtin. All rights reserved.
 
-// 20210211-7747
+// 20210823-7842
 /* services/modelinfo.js */
 
 app.modules['std:modelInfo'] = function () {
@@ -2955,7 +2970,10 @@ app.modules['std:modelInfo'] = function () {
 		let x = { pageSize: mi.PageSize, offset: mi.Offset, dir: mi.SortDir, order: mi.SortOrder, group: mi.GroupBy };
 		if (mi.Filter) {
 			for (let p in mi.Filter) {
-				x[p] = mi.Filter[p];
+				let fv = mi.Filter[p];
+				if (fv && fv.call)
+					fv = fv.call(this);
+				x[p] = fv;
 			}
 		}
 		return x;
@@ -3048,9 +3066,9 @@ app.modules['std:modelInfo'] = function () {
 };
 
 
-// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20190307-7460*/
+/*20230629-7939*/
 /* services/mask.js */
 
 app.modules['std:mask'] = function () {
@@ -3403,13 +3421,12 @@ app.modules['std:mask'] = function () {
 
 
 	function fireChange(input) {
-		var evt = document.createEvent('HTMLEvents');
-		evt.initEvent('change', false, true);
+		let evt = new Event('change', { bubbles: false, cancelable: true });
 		input.dispatchEvent(evt);
 	}
 };
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Oleksandr Kukhtin. All rights reserved.
 
 // 20201004-7806
 /* services/html.js */
@@ -3738,7 +3755,7 @@ app.modules['std:validators'] = function () {
 
 // Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20230318-7922*/
+/*20230807-7941*/
 /* services/impl/array.js */
 
 app.modules['std:impl:array'] = function () {
@@ -3841,14 +3858,19 @@ app.modules['std:impl:array'] = function () {
 
 	function addResize(arr) {
 
-		arr.$empty = function () {
-			if (this.$root.isReadOnly)
-				return this;
-			this._root_.$setDirty(true);
+		arr.__empty__ = function () {
+			// without dirty
 			this.splice(0, this.length);
 			if ('$RowCount' in this)
 				this.$RowCount = 0;
 			return this;
+		}
+
+		arr.$empty = function () {
+			if (this.$root.isReadOnly)
+				return this;
+			this._root_.$setDirty(true);
+			return this.__empty__();
 		};
 
 		arr.$append = function (src) {
@@ -4077,6 +4099,7 @@ app.modules['std:impl:array'] = function () {
 	}
 
 	function defineArrayItemProto(elem) {
+
 		let proto = elem.prototype;
 
 		proto.$remove = function () {
@@ -4103,12 +4126,39 @@ app.modules['std:impl:array'] = function () {
 			}
 		};
 
+		proto.$canMove = function (dir) {
+			let arr = this._parent_;
+			if (arr.length < 2) return;
+			let i1 = arr.indexOf(this);
+			if (dir === 'up')
+				return i1 >= 1;
+			else if (dir === 'down')
+				return i1 < arr.length - 1;
+			return false;
+		}
+
+		proto.$move = function(dir) {
+			let arr = this._parent_;
+			if (arr.length < 2) return;
+			let i1 = arr.indexOf(this);
+			let i2 = i1;
+			if (dir === 'up') {
+				if (i1 < 1) return;
+				i1 -= 1;
+			} else if (dir === 'down') {
+				if (i1 >= arr.length - 1) return;
+				i2 += 1;
+			}
+			arr.splice(i1, 2, arr[i2], arr[i1]);
+			arr.$renumberRows();
+			return this;
+		}
 	}
 };
 
 /* Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.*/
 
-/*20230318-7922*/
+/*20230807-7941*/
 // services/datamodel.js
 
 /*
@@ -4536,6 +4586,7 @@ app.modules['std:impl:array'] = function () {
 
 			elem._fireLoad_ = () => {
 				platform.defer(() => {
+					if (!elem.$vm) return;
 					let isRequery = elem.$vm.__isModalRequery();
 					elem.$emit('Model.load', elem, _lastCaller, isRequery);
 					elem._root_.$setDirty(elem._root_.$isCopy ? true : false);
@@ -4555,6 +4606,12 @@ app.modules['std:impl:array'] = function () {
 			elem._fireGlobalPeriodChanged_ = (period) => {
 				elem.$emit('GlobalPeriod.change', elem, period);
 			};
+			elem._fireGlobalAppEvent_ = (ev) => {
+				elem.$emit(ev.event, ev.data);
+			}
+			elem._fireSignalAppEvent_ = (ev) => {
+				elem.$emit("Signal." + ev.event, ev.data);
+			}
 		}
 		if (startTime) {
 			logtime('create root time:', startTime, false);
@@ -4834,6 +4891,14 @@ app.modules['std:impl:array'] = function () {
 		}
 	}
 
+	function getGlobalSaveEvent() {
+		let tml = this.$template;
+		if (!tml) return undefined;
+		let opts = tml.options;
+		if (!opts) return undefined;
+		return opts.globalSaveEvent;
+
+	}
 	function getDelegate(name) {
 		let tml = this.$template;
 		if (!tml || !tml.delegates) {
@@ -5056,7 +5121,7 @@ app.modules['std:impl:array'] = function () {
 
 	function hasErrors(props) {
 		if (!props || !props.length) return false;
-		let errs = this._collectErrors_();
+		let errs = this._allErrors_;
 		if (!errs.length) return false;
 		for (let i = 0; i < errs.length; i++) {
 			let e = errs[i];
@@ -5067,21 +5132,6 @@ app.modules['std:impl:array'] = function () {
 	}
 
 	function collectErrors() {
-		let me = this;
-		if (!me._host_) return me._allErrors_;
-		if (!me._needValidate_) return me._allErrors_;
-		let tml = me.$template;
-		if (!tml) return me._allErrors_;
-		let vals = tml.validators;
-		if (!vals) return me._allErrors_;
-		me._allErrors_.splice(0, me._allErrors_.length);
-		for (var val in vals) {
-			let err1 = validateOneElement(me, val, vals[val]);
-			if (err1) {
-				me._allErrors_.push({ x: val, e: err1 });
-			}
-		}
-		return me._allErrors_;
 	}
 
 	function validateAll(force) {
@@ -5104,16 +5154,35 @@ app.modules['std:impl:array'] = function () {
 			}
 		}
 		logtime('validation time:', startTime);
+		// merge allerrs into
+		// sync arrays:
+		// if me._allErrors_[i] not found in allerrs => remove it
+		let i = me._allErrors_.length;
+		while (i--) {
+			let a = me._allErrors_[i];
+			if (!allerrs.find(n => n.x === a.x))
+				me._allErrors_.splice(i, 1);
+		}
+		// if allerrs[i] not found in me._allErrors_ => append it
+		allerrs.forEach(n => {
+			if (!me._allErrors_.find(a => a.x === n.x))
+				me._allErrors_.push(n);
+		});
+
+
+
 		return allerrs;
 		//console.dir(allerrs);
 	}
 
 	function setDirty(val, path, prop) {
+		if (val === this.$dirty) return;
 		if (this.$root.$readOnly)
 			return;
-		if (path && path.toLowerCase().startsWith('query'))
-			return;
+		this.$root.$emit('Model.dirty.change', val, `${path}.${prop}`);
 		if (isNoDirty(this.$root))
+			return;
+		if (path && path.toLowerCase().startsWith('query'))
 			return;
 		if (path && prop && isSkipDirty(this.$root, `${path}.${prop}`))
 			return;
@@ -5268,10 +5337,10 @@ app.modules['std:impl:array'] = function () {
 		root.prototype._exec_ = executeCommand;
 		root.prototype._canExec_ = canExecuteCommand;
 		root.prototype._delegate_ = getDelegate;
+		root.prototype._globalSaveEvent_ = getGlobalSaveEvent;
 		root.prototype._validate_ = validate;
 		root.prototype._validateAll_ = validateAll;
 		root.prototype.$forceValidate = forceValidateAll;
-		root.prototype._collectErrors_ = collectErrors;
 		root.prototype.$hasErrors = hasErrors;
 		root.prototype.$destroy = destroyRoot;
 		// props cache for t.construct
@@ -5366,7 +5435,7 @@ app.modules['std:impl:array'] = function () {
 
 // Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-/*20230224-7921*/
+/*20230830-7947*/
 // controllers/base.js
 
 (function () {
@@ -5572,6 +5641,12 @@ app.modules['std:impl:array'] = function () {
 				if (this.__saveEvent__)
 					this.$caller.$data.$emit(this.__saveEvent__, this.$data);
 			},
+			$emitGlobal(event, data) {
+				eventBus.$emit('globalAppEvent', { event, data });
+			},
+			$emitParentTab(event, data) {
+				eventBus.$emit('toParentTab', { event, source: this, data });
+			},
 			$emitCaller(event, ...arr) {
 				if (this.$caller)
 					this.$caller.$data.$emit(event, ...arr);
@@ -5586,6 +5661,32 @@ app.modules['std:impl:array'] = function () {
 					for (let k of Object.keys(obj))
 						obj[k] = null;
 				}
+			},
+			$savePart(dataToSave, urlToSave, dialog) {
+				if (this.$data.$readOnly)
+					return;
+				eventBus.$emit('closeAllPopups');
+				let self = this;
+				let root = window.$$rootUrl;
+				const routing = require('std:routing'); // defer loading
+
+				let url = `${root}/${routing.dataUrl()}/save`;
+				return new Promise(function (resolve, reject) {
+					let baseUrl = urltools.combine(dialog ? '/_dialog' : '/_page', urlToSave);
+					let jsonData = utils.toJson({ baseUrl: baseUrl, data: dataToSave });
+					dataservice.post(url, jsonData).then(function (data) {
+						if (self.__destroyed__) return;
+						if (dataToSave.$merge) {
+							dataToSave.$merge(data, true, true /*only exists*/);
+							resolve(dataToSave); // merged
+						} else
+							resolve(data); // from server
+					}).catch(function (msg) {
+						if (msg === __blank__)
+							return;
+						self.$alertUi(msg);
+					});
+				});
 			},
 			$save(opts) {
 				if (this.$data.$readOnly)
@@ -5619,6 +5720,9 @@ app.modules['std:impl:array'] = function () {
 						self.$data.$emit('Model.saved', self.$data);
 						if (self.__saveEvent__)
 							self.$caller.$data.$emit(self.__saveEvent__, self.$data);
+						let globalSaveEvent = self.$data._globalSaveEvent_();
+						if (globalSaveEvent)
+							self.$emitGlobal(globalSaveEvent, self.$data);
 						self.$data.$setDirty(false);
 						// data is a full model. Resolve requires only single element.
 						let dataToResolve;
@@ -5755,12 +5859,12 @@ app.modules['std:impl:array'] = function () {
 				let url = `${root}/${routing.dataUrl()}/reload`;
 				let dat = self.$data;
 
-				let mi = args ? modelInfo.get(args.$ModelInfo) : null;
+				let mi = args ? modelInfo.get.call(this.$data, args.$ModelInfo) : null;
 				if (!args && !mi) {
 					// try to get first $ModelInfo
 					let modInfo = this.$data._findRootModelInfo();
 					if (modInfo) {
-						mi = modelInfo.get(modInfo);
+						mi = modelInfo.get.call(this.$data, modInfo);
 					}
 				}
 
@@ -5777,6 +5881,7 @@ app.modules['std:impl:array'] = function () {
 					let jsonData = utils.toJson(dataToQuery);
 					dataservice.post(url, jsonData).then(function (data) {
 						if (self.__destroyed__) return;
+						eventBus.$emit('pageReloaded', dataToQuery.baseUrl);
 						if (utils.isObject(data)) {
 							dat.$merge(data, true/*checkBindOnce*/);
 							modelInfo.reconcileAll(data.$ModelInfo);
@@ -5798,13 +5903,14 @@ app.modules['std:impl:array'] = function () {
 			async $nodirty(callback) {
 				let wasDirty = this.$data.$dirty;
 				await callback();
-				this.$defer(() => this.$data.$setDirty(wasDirty));
+				if (!this.$data) return;
+				this.$defer(() => this.$data ? this.$data.$setDirty(wasDirty) : undefined);
 			},
-			$requery() {
+			$requery(query) {
 				if (this.inDialog)
 					eventBus.$emit('modalRequery', this.$baseUrl);
 				else
-					eventBus.$emit('requery');
+					eventBus.$emit('requery', this, query);
 			},
 
 			$remove(item, confirm) {
@@ -5896,9 +6002,10 @@ app.modules['std:impl:array'] = function () {
 					if (opts && opts.catchError)
 						throw err;
 					else if (err.indexOf('UI:') === 0)
-						this.$alert(err);
+						this.$alert(err.substring(3).replace('\\n', '\n'));
 					else
 						alert(err);
+					return false;
 				}
 			},
 
@@ -6513,6 +6620,8 @@ app.modules['std:impl:array'] = function () {
 					opts = { dataType: opts };
 				if (!opts.format && !opts.dataType && !opts.mask)
 					return value;
+				if (opts.format === 'ToString')
+					return utils.convertToString(value, opts);
 				if (opts.mask)
 					return value ? mask.getMasked(opts.mask, value) : value;
 				if (opts.dataType)
@@ -6585,25 +6694,17 @@ app.modules['std:impl:array'] = function () {
 				let self = this,
 					root = window.$$rootUrl,
 					url = `${root}/${routing.dataUrl()}/loadlazy`,
-					selfMi = elem[propName].$ModelInfo,
-					parentMi = elem.$parent.$ModelInfo;
+					selfMi = elem[propName].$ModelInfo;
 
-				// HACK. inherit filter from parent modelInfo
-				/*
-				?????
-				if (parentMi && parentMi.Filter) {
-					if (selfMi)
-						modelInfo.mergeFilter(selfMi.Filter, parentMi.Filter);
-					else
-						selfMi = parentMi;
+				if (!selfMi) {
+					let evData = { elem: elem, prop: propName, modelInfo: null };
+					this.$data.$emit('Model.lazy.init', evData);
+					selfMi = evData.modelInfo; // may be changed
 				}
-				*/
 
-				let mi = modelInfo.get(selfMi);
+				let mi = modelInfo.get.call(self.$data, selfMi);
 				let xQuery = urltools.parseUrlAndQuery(self.$baseUrl, mi);
 				let newUrl = xQuery.url + urltools.makeQueryString(mi);
-				//console.dir(newUrl);
-				//let jsonData = utils.toJson({ baseUrl: urltools.replaceUrlQuery(self.$baseUrl, mi), id: elem.$id, prop: propName });
 				let jsonData = utils.toJson({ baseUrl: newUrl, id: elem.$id, prop: propName });
 
 				return new Promise(function (resolve, reject) {
@@ -6615,7 +6716,7 @@ app.modules['std:impl:array'] = function () {
 					dataservice.post(url, jsonData).then(function (data) {
 						if (self.__destroyed__) return;
 						if (propName in data) {
-							arr.$empty();
+							arr.__empty__();
 							for (let el of data[propName])
 								arr.push(arr.$new(el));
 							let rcName = propName + '.$RowCount';
@@ -6745,6 +6846,7 @@ app.modules['std:impl:array'] = function () {
 			__createController__() {
 				let ctrl = {
 					$save: this.$save,
+					$savePart: this.$savePart,
 					$invoke: this.$invoke,
 					$close: this.$close,
 					$modalClose: this.$modalClose,
@@ -6771,6 +6873,8 @@ app.modules['std:impl:array'] = function () {
 					$upload: this.$upload,
 					$emitCaller: this.$emitCaller,
 					$emitSaveEvent: this.$emitSaveEvent,
+					$emitGlobal: this.$emitGlobal,
+					$emitParentTab: this.$emitParentTab,
 					$nodirty: this.$nodirty,
 					$showSidePane: this.$showSidePane
 				};
@@ -6840,6 +6944,14 @@ app.modules['std:impl:array'] = function () {
 			},
 			__global_period_changed__(period) {
 				this.$data._fireGlobalPeriodChanged_(period);
+			},
+			__signalAppEvent__(data) {
+				if (this.$data && this.$data._fireSignalAppEvent_)
+					this.$data._fireSignalAppEvent_(data);
+			},
+			__globalAppEvent__(data) {
+				if (this.$data && this.$data._fireGlobalAppEvent_)
+					this.$data._fireGlobalAppEvent_(data);
 			}
 		},
 		created() {
@@ -6849,12 +6961,17 @@ app.modules['std:impl:array'] = function () {
 			this.$caller = out.caller;
 			this.__destroyed__ = false;
 
+			if (!this.$store && store.create)
+				this.$store = store.create(this);
+
 			eventBus.$on('beginRequest', this.__beginRequest);
 			eventBus.$on('endRequest', this.__endRequest);
 			eventBus.$on('queryChange', this.__queryChange);
 			eventBus.$on('childrenSaved', this.__notified);
 			eventBus.$on('invokeTest', this.__invoke__test__);
 			eventBus.$on('globalPeriodChanged', this.__global_period_changed__);
+			eventBus.$on('globalAppEvent', this.__globalAppEvent__);
+			eventBus.$on('signalEvent', this.__signalAppEvent__);
 
 			this.$on('cwChange', this.__cwChange);
 			this.__asyncCache__ = {};
@@ -6863,7 +6980,8 @@ app.modules['std:impl:array'] = function () {
 				log.time('create time:', __createStartTime, false);
 		},
 		beforeDestroy() {
-			this.$data._fireUnload_();
+			if (this.$data._fireUnload_)
+				this.$data._fireUnload_();
 		},
 		destroyed() {
 			//console.dir('base.js has been destroyed');
@@ -6876,6 +6994,7 @@ app.modules['std:impl:array'] = function () {
 			eventBus.$off('childrenSaved', this.__notified);
 			eventBus.$off('invokeTest', this.__invoke__test__);
 			eventBus.$off('globalPeriodChanged', this.__global_period_changed__);
+			eventBus.$off('globalAppEvent', this.__globalAppEvent__);
 
 			this.$off('cwChange', this.__cwChange);
 			htmlTools.removePrintFrame();

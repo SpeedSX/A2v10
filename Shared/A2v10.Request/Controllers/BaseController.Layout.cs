@@ -24,7 +24,7 @@ public class MultiTenantParamJson
 
 public partial class BaseController
 {
-	public void Layout(TextWriter writer, IDictionary<String, String> prms, String localUrl, String siteHost)
+	public void Layout(TextWriter writer, IDictionary<String, String> prms, String localUrl, String siteHost, Action<ExpandoObject> setParams = null)
 	{
 		var customLayout = _host.CustomLayout;
 		String layout;
@@ -49,8 +49,14 @@ public partial class BaseController
 			actionUrl = actionUrl.Remove(0, 6); // remove 'admin/';
 		var action = RequestModel.GetActionFromUrl(_host, actionUrl);
 
+		var customScripts = _host.CustomAppScripts();
+		if (customScripts.Contains("@{CurrentUserInfo}"))
+		{
+			var res = GetCurrentUserInfoForScript(setParams);
+			customScripts = customScripts.Replace("@{CurrentUserInfo}", res);
+		}
 		sb.Replace("$(AssetsScripts)", AppScriptsLink);
-		sb.Replace("$(LayoutScripts)", _host.CustomAppScripts());
+		sb.Replace("$(LayoutScripts)", customScripts);
 		sb.Replace("$(Release)", _host.IsDebugConfiguration ? "debug" : "release");
 		sb.Replace("$(ModelScripts)", action?.GetModelScripts());
 		sb.Replace("$(ModelStyles)", action?.GetModelStyles());
@@ -59,6 +65,13 @@ public partial class BaseController
 		writer.Write(sb.ToString());
 	}
 
+	String GetCurrentUserInfoForScript(Action<ExpandoObject> setParams = null)
+	{
+		var prms = new ExpandoObject();
+		setParams.Invoke(prms);
+		var res = _dbContext.ExecuteAndLoadExpando(_host.TenantDataSource, "a2security.[CurrentUser.Info]", prms);
+		return JsonConvert.SerializeObject(res);
+	}
 	async Task<MultiTenantParamJson> ProcessMultiTenantParams(ExpandoObject prms)
 	{
 		var permssionModel = await _dbContext.LoadModelAsync(_host.TenantDataSource, "a2security_tenant.[Permission.LoadMenu]", prms);
@@ -166,10 +179,9 @@ public partial class BaseController
 		{
 			String jsonCompanies = JsonConvert.SerializeObject(new { menu = companies, links },
 				JsonHelpers.ConfigSerializerSettings(_host.IsDebugConfiguration));
-			var currComp = companies?.Find(c => c.Get<Boolean>("Current"));
-			if (currComp == null)
-				throw new InvalidDataException("There is no current company");
-			_userStateManager.SetUserCompanyId(currComp.Get<Int64>("Id"));
+			var currComp = (companies?.Find(c => c.Get<Boolean>("Current"))) 
+				?? throw new InvalidDataException("There is no current company");
+            _userStateManager.SetUserCompanyId(currComp.Get<Int64>("Id"));
 			macros.Set("Companies", jsonCompanies);
 		}
 		if (period != null) { 
@@ -189,10 +201,9 @@ public partial class BaseController
 	public async Task ShellScript(String dataSource, Action<ExpandoObject> setParams, IUserInfo userInfo, Boolean bAdmin, TextWriter writer)
 	{
 		if (!String.IsNullOrEmpty(_host.CustomLayout)) {
-			var customScript = await _host.ApplicationReader.ReadTextFileAsync("_layout", $"{_host.CustomLayout}.js");
-			if (customScript == null)
-				throw new RequestModelException($"File not found. [{_host.AppKey}/_layout/{_host.CustomLayout}.js]");
-			await writer.WriteAsync(customScript);
+			var customScript = await _host.ApplicationReader.ReadTextFileAsync("_layout", $"{_host.CustomLayout}.js") 
+				?? throw new RequestModelException($"File not found. [{_host.AppKey}/_layout/{_host.CustomLayout}.js]");
+            await writer.WriteAsync(customScript);
 		}
 
 		if (!bAdmin && _host.CustomUserMenu != null)
@@ -256,14 +267,9 @@ public partial class BaseController
 		if (setCompany)
 		{
 			var comps = dm.Root.Get<List<ExpandoObject>>("Companies");
-			var currComp = comps?.Find(c => c.Get<Boolean>("Current"));
-
-			if (currComp == null)
-			{
-				throw new InvalidDataException("There is no current company");
-			}
-
-			var menuJson = JsonConvert.SerializeObject(comps, JsonHelpers.ConfigSerializerSettings(_host.IsDebugConfiguration));
+			var currComp = (comps?.Find(c => c.Get<Boolean>("Current"))) 
+				?? throw new InvalidDataException("There is no current company");
+            var menuJson = JsonConvert.SerializeObject(comps, JsonHelpers.ConfigSerializerSettings(_host.IsDebugConfiguration));
 			macros.Set("Companies", $"{{menu:{menuJson}, links:null}}");
 
 			_userStateManager.SetUserCompanyId(currComp.Get<Int64>("Id"));
@@ -320,6 +326,8 @@ public partial class BaseController
 					continue; // min.{ext} found
 			}
 			var txt = _host.ApplicationReader.FileReadAllText(fileName);
+			if (txt.StartsWith("/*!@localize*/"))
+				txt = _localizer.Localize(null, txt, false);
 			writer.Write(txt);
 		}
 	}
@@ -328,10 +336,9 @@ public partial class BaseController
 	{
 		if (String.IsNullOrEmpty(_host.CustomLayout))
 			return;
-		var stylesText = _host.ApplicationReader.ReadTextFile("_layout", $"{_host.CustomLayout}.css");
-		if (stylesText == null)
-			throw new RequestModelException($"File not found. [{_host.AppKey}/_layout/{_host.CustomLayout}.css]");
-		writer.Write(stylesText);
+		var stylesText = _host.ApplicationReader.ReadTextFile("_layout", $"{_host.CustomLayout}.css") 
+			?? throw new RequestModelException($"File not found. [{_host.AppKey}/_layout/{_host.CustomLayout}.css]");
+        writer.Write(stylesText);
 	}
 
 	public void GetAppStyleConent(TextWriter writer)

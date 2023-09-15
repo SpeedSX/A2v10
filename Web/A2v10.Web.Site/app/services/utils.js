@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20230224-7921
+// 20230814-7943
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -45,6 +45,7 @@ app.modules['std:utils'] = function () {
 		eval: evaluate,
 		simpleEval: simpleEval,
 		format: format,
+		convertToString,
 		toNumber,
 		parse: parse,
 		getStringId,
@@ -322,6 +323,15 @@ app.modules['std:utils'] = function () {
 		return formatDate(date);
 	}
 
+	function convertToString(obj) {
+		if (!obj)
+			return '';
+		if (isObjectExact(obj) && 'Name' in obj)
+			return obj.Name;
+		else if (isDate(obj))
+			return formatDate(obj);
+		return '' + val;
+	}
 
 	function format(obj, dataType, opts) {
 		opts = opts || {};
@@ -331,6 +341,7 @@ app.modules['std:utils'] = function () {
 			return '';
 		switch (dataType) {
 			case "DateTime":
+				if (!obj) return '';
 				if (!isDate(obj)) {
 					console.error(`Invalid Date for utils.format (${obj})`);
 					return obj;
@@ -341,6 +352,7 @@ app.modules['std:utils'] = function () {
 					return formatDateWithFormat(obj, opts.format);
 				return formatDate(obj) + ' ' + formatTime(obj);
 			case "Date":
+				if (!obj) return '';
 				if (isString(obj))
 					obj = string2Date(obj);
 				if (!isDate(obj)) {
@@ -537,6 +549,7 @@ app.modules['std:utils'] = function () {
 	}
 
 	function dateIsZero(d1) {
+		if (d1 === null) return true;
 		if (!isDate(d1)) return false;
 		return dateEqual(d1, dateZero());
 	}
@@ -818,7 +831,8 @@ app.modules['std:utils'] = function () {
 			events: assign(src.events, tml.events),
 			defaults: assign(src.defaults, tml.defaults),
 			commands: assign(src.commands, tml.commands),
-			delegates: assign(src.delegates, tml.delegates)
+			delegates: assign(src.delegates, tml.delegates),
+			options: assign(src.options, tml.options)
 		});
 	}
 };

@@ -1,6 +1,6 @@
 ﻿/* Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.*/
 
-/*20230318-7922*/
+/*20230807-7941*/
 // services/datamodel.js
 
 /*
@@ -428,6 +428,7 @@
 
 			elem._fireLoad_ = () => {
 				platform.defer(() => {
+					if (!elem.$vm) return;
 					let isRequery = elem.$vm.__isModalRequery();
 					elem.$emit('Model.load', elem, _lastCaller, isRequery);
 					elem._root_.$setDirty(elem._root_.$isCopy ? true : false);
@@ -447,6 +448,12 @@
 			elem._fireGlobalPeriodChanged_ = (period) => {
 				elem.$emit('GlobalPeriod.change', elem, period);
 			};
+			elem._fireGlobalAppEvent_ = (ev) => {
+				elem.$emit(ev.event, ev.data);
+			}
+			elem._fireSignalAppEvent_ = (ev) => {
+				elem.$emit("Signal." + ev.event, ev.data);
+			}
 		}
 		if (startTime) {
 			logtime('create root time:', startTime, false);
@@ -726,6 +733,14 @@
 		}
 	}
 
+	function getGlobalSaveEvent() {
+		let tml = this.$template;
+		if (!tml) return undefined;
+		let opts = tml.options;
+		if (!opts) return undefined;
+		return opts.globalSaveEvent;
+
+	}
 	function getDelegate(name) {
 		let tml = this.$template;
 		if (!tml || !tml.delegates) {
@@ -948,7 +963,7 @@
 
 	function hasErrors(props) {
 		if (!props || !props.length) return false;
-		let errs = this._collectErrors_();
+		let errs = this._allErrors_;
 		if (!errs.length) return false;
 		for (let i = 0; i < errs.length; i++) {
 			let e = errs[i];
@@ -959,21 +974,6 @@
 	}
 
 	function collectErrors() {
-		let me = this;
-		if (!me._host_) return me._allErrors_;
-		if (!me._needValidate_) return me._allErrors_;
-		let tml = me.$template;
-		if (!tml) return me._allErrors_;
-		let vals = tml.validators;
-		if (!vals) return me._allErrors_;
-		me._allErrors_.splice(0, me._allErrors_.length);
-		for (var val in vals) {
-			let err1 = validateOneElement(me, val, vals[val]);
-			if (err1) {
-				me._allErrors_.push({ x: val, e: err1 });
-			}
-		}
-		return me._allErrors_;
 	}
 
 	function validateAll(force) {
@@ -996,16 +996,35 @@
 			}
 		}
 		logtime('validation time:', startTime);
+		// merge allerrs into
+		// sync arrays:
+		// if me._allErrors_[i] not found in allerrs => remove it
+		let i = me._allErrors_.length;
+		while (i--) {
+			let a = me._allErrors_[i];
+			if (!allerrs.find(n => n.x === a.x))
+				me._allErrors_.splice(i, 1);
+		}
+		// if allerrs[i] not found in me._allErrors_ => append it
+		allerrs.forEach(n => {
+			if (!me._allErrors_.find(a => a.x === n.x))
+				me._allErrors_.push(n);
+		});
+
+
+
 		return allerrs;
 		//console.dir(allerrs);
 	}
 
 	function setDirty(val, path, prop) {
+		if (val === this.$dirty) return;
 		if (this.$root.$readOnly)
 			return;
-		if (path && path.toLowerCase().startsWith('query'))
-			return;
+		this.$root.$emit('Model.dirty.change', val, `${path}.${prop}`);
 		if (isNoDirty(this.$root))
+			return;
+		if (path && path.toLowerCase().startsWith('query'))
 			return;
 		if (path && prop && isSkipDirty(this.$root, `${path}.${prop}`))
 			return;
@@ -1160,10 +1179,10 @@
 		root.prototype._exec_ = executeCommand;
 		root.prototype._canExec_ = canExecuteCommand;
 		root.prototype._delegate_ = getDelegate;
+		root.prototype._globalSaveEvent_ = getGlobalSaveEvent;
 		root.prototype._validate_ = validate;
 		root.prototype._validateAll_ = validateAll;
 		root.prototype.$forceValidate = forceValidateAll;
-		root.prototype._collectErrors_ = collectErrors;
 		root.prototype.$hasErrors = hasErrors;
 		root.prototype.$destroy = destroyRoot;
 		// props cache for t.construct

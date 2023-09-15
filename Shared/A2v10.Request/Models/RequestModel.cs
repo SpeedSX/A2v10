@@ -118,6 +118,7 @@ public class RequestBase
 	public String source; // or parent
 	public Boolean index;
 	public Boolean skipDataStack;
+	public Boolean plain;
 	public Boolean copy;
 	public String template;
 	public String script;
@@ -311,8 +312,7 @@ public class RequestBase
 	{
 		if (actual == "_admin_")
 			return;
-		if (permissions != null)
-			permissions.CheckAllow(actual, debug);
+		permissions?.CheckAllow(actual, debug);
 	}
 }
 
@@ -588,7 +588,8 @@ public enum RequestReportType
 	stimulsoft,
 	xml,
 	json,
-	pdf
+	pdf,
+	xlsx
 }
 
 public class RequestReport : RequestBase
@@ -619,13 +620,14 @@ public class RequestReport : RequestBase
 	}
 
 	[JsonIgnore]
-	public Boolean HasPath => type == RequestReportType.stimulsoft || type == RequestReportType.pdf;
+	public Boolean HasPath => type == RequestReportType.stimulsoft || type == RequestReportType.pdf || type == RequestReportType.xlsx;
 
 	public String GetExtension() {
 		return type switch
 		{
 			RequestReportType.stimulsoft => ".mrt",
 			RequestReportType.pdf => ".xaml",
+			RequestReportType.xlsx => ".xaml",
 			_ => "",
 		};
 	}
@@ -755,6 +757,9 @@ public class RequestModel
 	public String allowAddress;
 	public String allowOrigin;
 	public String allowHost;
+
+	[JsonProperty("imageSettings")]
+	public Dictionary<String, ImageSettings> ImageSettings { get; set; } = new();
 
 	[JsonProperty("actions")]
 	public Dictionary<String, RequestAction> Actions { get; set; } = new Dictionary<String, RequestAction>(StringComparer.OrdinalIgnoreCase);
@@ -1027,10 +1032,8 @@ public class RequestModel
 	{
 		var mi = GetModelInfo(kind, normalizedUrl);
 		String pathForLoad = _redirect.Value.Redirect(mi.path);
-		String jsonText = await host.ApplicationReader.ReadTextFileAsync(pathForLoad, "model.json");
-		if (jsonText == null)
-			throw new FileNotFoundException($"File not found '{pathForLoad}/model.json'");
-
+		String jsonText = await host.ApplicationReader.ReadTextFileAsync(pathForLoad, "model.json") 
+				?? throw new FileNotFoundException($"File not found '{pathForLoad}/model.json'");
 		var rm = JsonConvert.DeserializeObject<RequestModel>(jsonText);
 		rm._host = host;
 		rm.EndInit();

@@ -1,10 +1,7 @@
-﻿// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20190328-7473
+// 20230811-7943
 // components/list.js
-
-/* TODO:
-*/
 
 (function () {
 
@@ -19,7 +16,7 @@
 <ul class="a2-list" v-lazy="itemsSource">
 	<template v-if="itemsSource">
 		<li class="a2-list-item" tabindex="1" :class="cssClass(listItem)" v-for="(listItem, listItemIndex) in source" :key="listItemIndex" 
-				@mousedown.prevent="select(listItem)" @keydown="keyDown" 
+				@mousedown="select(listItem)" @keydown="keyDown" 
 				ref="li" v-on:dblclick.prevent="doDblClick">
 			<span v-if="listItem.__group" v-text="listItem.__group"></span>
 			<slot name="items" :item="listItem" v-if="!listItem.__group"/>
@@ -136,13 +133,13 @@
 						console.error('Id not found in Root.modelInfo');
 						return;
 					}
-					let fe = src.find(itm => itm.$id === rootId);
-					if (!fe) {
-						console.error(`Element with id=${rootId} not found`);
-						fe = src[0];
+					let fe = src[0];
+					if (rootId) {
+						fe = src.find(itm => itm.$id === rootId);
+						if (!fe) 
+							console.error(`Element with id=${rootId} not found`);
 					}
-					if (fe)
-						this.select(fe);
+					if (fe) this.select(fe);
 				}
 			},
 			keyDown(e) {

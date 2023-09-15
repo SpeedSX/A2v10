@@ -1,4 +1,4 @@
-﻿// Copyright © 2019-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2019-2023 Oleksandr Kukhtin. All rights reserved.
 
 using System;
 using System.Dynamic;
@@ -40,6 +40,8 @@ namespace A2v10.Request
 				_conentType = value;
 			}
 		}
+
+		public String FileName { get; set; }
 	}
 
 	public interface IServerCommand

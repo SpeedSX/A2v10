@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20221107-7903
+// 20230807-7941
 // components/datagrid.js*/
 
 (function () {
@@ -32,7 +32,7 @@
 		</colgroup>
 		<thead>
 			<tr v-show="isHeaderVisible">
-				<th v-if="isMarkCell" class="marker"><div v-if="fixedHeader" class="h-holder">&#160;</div></th>
+				<th v-if="isMarkCell" class="marker"><div v-if=fixedHeader class="h-fill"></div><div v-if=fixedHeader class="h-holder">&#160;</div></th>
 				<th v-if="isRowDetailsCell" class="details-marker"><div v-if="fixedHeader" class="h-holder">&#160;</div></th>
 				<slot></slot>
 			</tr>
@@ -104,8 +104,11 @@
 	const dataGridColumnTemplate = `
 <th :class="cssClass" @click.prevent="doSort">
 	<div class="h-fill" v-if="fixedHeader" v-text="headerText">
-	</div><div class="h-holder">
-		<slot>{{headerText}}</slot>
+	</div>
+	<div class="h-holder">
+		<slot><label v-if=checkAll class="like-checkbox" :class="checkAllClass" @click=doCheckAll><span></span></label>
+			<span v-else v-text="headerText"></span>
+		</slot>
 	</div>
 </th>
 `;
@@ -135,7 +138,9 @@
 			width: String,
 			fit: Boolean,
 			wrap: String,
-			command: Object
+			command: Object,
+			maxChars: Number,
+			checkAll: String
 		},
 		created() {
 			this.$parent.$addColumn(this);
@@ -167,6 +172,14 @@
 			classAlign() {
 				return this.align !== 'left' ? (' text-' + this.align).toLowerCase() : '';
 			},
+			checkAllClass() {
+				let state = this.$parent.$checkAllState(this.checkAll);
+				if (state === 1)
+					return 'checked'; // indeterminate';
+				else if (state === 2)
+					return 'indeterminate';
+				return undefined;
+			},
 			cssClass() {
 				let cssClass = this.classAlign;
 				if (this.isSortable) {
@@ -174,6 +187,8 @@
 					if (this.dir)
 						cssClass += ' ' + this.dir;
 				}
+				if (this.checkAll)
+					cssClass += ' check-all'
 				return cssClass;
 			},
 			headerText() {
@@ -191,6 +206,10 @@
 				if (!this.isSortable)
 					return;
 				this.$parent.doSort(this.sortProperty);
+			},
+			doCheckAll() {
+				if (!this.checkAll) return;
+				this.$parent.$checkAll(this.checkAll);
 			},
 			cellCssClass(row, editable) {
 				let cssClass = this.classAlign;
@@ -358,7 +377,12 @@
 			}
 
 			let content = utils.eval(row, col.content, col.dataType, col.evalOpts);
-			let chElems = [h('span', { 'class': { 'dg-cell': true, 'negative-red': isNegativeRed(col) } }, content)];
+			let spanProps = { 'class': { 'dg-cell': true, 'negative-red': isNegativeRed(col) } };
+			if (col.maxChars) {
+				spanProps.attrs = { title: content };
+				content = utils.text.maxChars(content, col.maxChars);
+			}
+			let chElems = [h('span', spanProps, content)];
 			let icoSingle = !col.content ? ' ico-single' : '';
 			if (col.icon)
 				chElems.unshift(h('i', { 'class': 'ico ico-' + col.icon + icoSingle }));
@@ -818,6 +842,29 @@
 				// lev 1-based
 				for (var gr of this.$groups)
 					gr.expanded = gr.level < lev;
+			},
+			$checkAll(path) {
+				if (!this.$items) return;
+				let s = this.$checkAllState(path);
+				let val = s != 1;
+				this.$items.forEach(itm => itm[path] = val);
+			},
+			$checkAllState(path) {
+				// 0 - unchecked; 1 - checked, 2-indeterminate
+				if (!this.$items) return 0;
+				let checked = 0;
+				let unchecked = 0;
+				this.$items.forEach(itm => {
+					if (itm[path])
+						checked += 1;
+					else
+						unchecked += 1;
+				});
+				if (checked === 0)
+					return 0;
+				else if (unchecked === 0)
+					return 1;
+				return 2;
 			},
 			__autoSelect() {
 				if (!this.autoSelect || !this.$items || !this.$items.length) return;

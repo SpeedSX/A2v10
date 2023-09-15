@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
-// 20210729-7798
+// 20230705-7939
 // components/periodpicker.js
 
 
@@ -14,7 +14,6 @@
 	const du = utils.date;
 
 	const baseControl = component('control');
-	const locale = window.$$locale;
 
 	const DEFAULT_DEBOUNCE = 150;
 
@@ -185,7 +184,10 @@
 					this.callback(this.period);
 				let root = this.item.$root;
 				if (!root) return;
-				let eventName = this.item._path_ + '.' + this.prop + '.change';
+				let path = this.item._path_ || 'global';
+				let eventName = `${path}.${this.prop}.change`;
+				if (root && root.$setDirty)
+					root.$setDirty(true, path, this.prop);
 				root.$emit(eventName, this.item, this.period, null);
 			},
 			toggle(ev) {

@@ -60,7 +60,6 @@ public class AccountController : IdentityController, IControllerTenant, IControl
 	private readonly IApplicationHost _host;
 	private readonly IDbContext _dbContext;
 	private readonly ILocalizer _localizer;
-	private readonly IUserStateManager _userStateManager;
 	private readonly IUserLocale _userLocale;
 	private readonly IDataProtectionProvider _dataProtectionProvider;
 	private readonly IHooksProvider _hooksProvider;
@@ -78,7 +77,6 @@ public class AccountController : IdentityController, IControllerTenant, IControl
 		_host = serviceLocator.GetService<IApplicationHost>();
 		_dbContext = serviceLocator.GetService<IDbContext>();
 		_localizer = serviceLocator.GetService<ILocalizer>();
-		_userStateManager = serviceLocator.GetService<IUserStateManager>();
 		_userLocale = serviceLocator.GetService<IUserLocale>();
 		_dataProtectionProvider = serviceLocator.GetService<IDataProtectionProvider>();
 		_hooksProvider = serviceLocator.GetService<IHooksProvider>();
@@ -93,7 +91,6 @@ public class AccountController : IdentityController, IControllerTenant, IControl
 		_host = serviceLocator.GetService<IApplicationHost>();
 		_dbContext = serviceLocator.GetService<IDbContext>();
 		_localizer = serviceLocator.GetService<ILocalizer>();
-		_userStateManager = serviceLocator.GetService<IUserStateManager>();
 		_userLocale = serviceLocator.GetService<IUserLocale>();
 		_dataProtectionProvider = serviceLocator.GetService<IDataProtectionProvider>();
 		_hooksProvider = serviceLocator.GetService<IHooksProvider>();
@@ -200,7 +197,7 @@ public class AccountController : IdentityController, IControllerTenant, IControl
 	[AllowAnonymous]
 	[HttpGet]
 	[OutputCache(Duration = 0)]
-	public void Login(String Referral, String lang)
+	public void Login(String _1/*Referral*, String _2/*lang*/)
 	{
 		if (User.Identity.IsAuthenticated)
 		{
@@ -456,7 +453,7 @@ public class AccountController : IdentityController, IControllerTenant, IControl
 				keysForDelete.Add(dd.Key);
 		}
 		foreach (var key in keysForDelete)
-			_ddosChecker.TryRemove(key, out DateTime outVal);
+			_ddosChecker.TryRemove(key, out DateTime _);
 	}
 
 	async Task SaveReferral(Int64 userId, String referral)
@@ -481,7 +478,7 @@ public class AccountController : IdentityController, IControllerTenant, IControl
 	void RemoveDDOSTime()
 	{
 		String host = Request.UserHostAddress;
-		_ddosChecker.TryRemove(host, out DateTime dt);
+		_ddosChecker.TryRemove(host, out DateTime _);
 	}
 
 
@@ -649,7 +646,7 @@ public class AccountController : IdentityController, IControllerTenant, IControl
 	[AllowAnonymous]
 	[HttpGet]
 	[OutputCache(Duration = 0)]
-	public async Task<ActionResult> ConfirmCode(Int64? userId)
+	public async Task<ActionResult> ConfirmCode(Int64? _1/*userId*/)
 	{
 		try
 		{

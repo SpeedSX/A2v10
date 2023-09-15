@@ -34,6 +34,8 @@
 @SetNewPassword=Встановлення паролю
 @InviteEMail=Ласкаво просимо!
 @ChangePasswordDisabled=Зміну пароля заборонено!
+@InviteUserSubject=Запрошення на реєстрацію
+@InviteUserBody=Для завершення реєстрації перейдіть <a href="{0}">по посиланню</a>
 ;
 @Home=Головна
 @Documents=Документи
@@ -82,7 +84,7 @@
 ;
 @Confirm=Підтвердження
 @ConfirmDeleteDocument=Видалити документ?
-@DocumentSaved=Документ сбережено вдало
+@DocumentSaved=Документ збережено вдало
 ;
 @Error.EnterName=Введіть назву елемента
 @Error.DuplicateCode=Елемент з таким кодом вже існує
@@ -97,6 +99,7 @@
 @Locale=uk-UA
 @Ok=OK
 @Login=Увійти
+@UserName=Ім'я
 @LoginPrompt=Вхід в систему
 @RegisterPrompt=Реєстрація в системі
 @ForgotPrompt=Відновлення паролю
@@ -137,10 +140,19 @@
 @TryLater=Надто багато спроб зареєструватися за короткий час.\nСпробуйте зареєструватися через п'ять хвилин.
 @Continue=Продовжити
 @ConfirmCode=Код підтвердження
+@EnterConfirmCode=Введіть код підтвердження
 @InvalidConfirmCode=Неправильний код підтверження
 @EMailAlreadyConfirmed=е-mail вже підтверджено
 @LocaleLabel=Мова інтерфейсу
 @SendCodeAgain=Відправити код ще раз
 @ErrorAntiForgery=Запит вже виконано в іншому вікні браузера. Сторінку буде перезавантажено
 @IHaveCode=В мене є код підтвердження
-@AvailableLocales={"uk-UA": 'Українська',"ru-RU": 'Російська',"en-US": 'Англійська',"de-DE": 'Німецька'}
+@AvailableLocales={"uk-UA": 'Українська',"ru-RU": 'Російська',"en-US": 'Англійська',"de-DE": 'Німецька', , "es-ES": "Іспанська"}
+;
+@CloseTabsRight=Закрити вкладки праворуч
+@CloseOtherTabs=Закрити інші вкладки
+@ReopenClosedTab=Відкрити закриту вкладку знову
+@CloseAllTabs=Закрити всі вкладки
+@OpenTabs=Відкриті вкладки
+@RecentlyClosedTabs=Нещодавно закриті
+

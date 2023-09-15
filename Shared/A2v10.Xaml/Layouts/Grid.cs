@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
 
 using System;
 using System.Collections.Generic;
@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+
 using A2v10.Infrastructure;
 
 namespace A2v10.Xaml;
@@ -38,8 +39,7 @@ public class Grid : Container
 
 	public static void SetCol(Object obj, Int32 col)
 	{
-		if (_attachedColumn == null)
-			_attachedColumn = new Dictionary<Object, Int32>();
+		_attachedColumn ??= new Dictionary<Object, Int32>();
 		AttachedHelpers.SetAttached(_attachedColumn, obj, col);
 	}
 
@@ -50,8 +50,7 @@ public class Grid : Container
 
 	public static void SetRow(Object obj, Int32 row)
 	{
-		if (_attachedRow == null)
-			_attachedRow = new Dictionary<Object, Int32>();
+		_attachedRow ??= new Dictionary<Object, Int32>();
 		AttachedHelpers.SetAttached(_attachedRow, obj, row);
 	}
 
@@ -62,8 +61,7 @@ public class Grid : Container
 
 	public static void SetColSpan(Object obj, Int32 span)
 	{
-		if (_attachedColSpan == null)
-			_attachedColSpan = new Dictionary<Object, Int32>();
+		_attachedColSpan ??= new Dictionary<Object, Int32>();
 		AttachedHelpers.SetAttached(_attachedColSpan, obj, span);
 	}
 
@@ -74,8 +72,7 @@ public class Grid : Container
 
 	public static void SetRowSpan(Object obj, Int32 span)
 	{
-		if (_attachedRowSpan == null)
-			_attachedRowSpan = new Dictionary<Object, Int32>();
+		_attachedRowSpan ??= new Dictionary<Object, Int32>();
 		AttachedHelpers.SetAttached(_attachedRowSpan, obj, span);
 	}
 
@@ -86,8 +83,7 @@ public class Grid : Container
 
 	public static void SetVAlign(Object obj, AlignItem vAlign)
 	{
-		if (_attachedVAlign == null)
-			_attachedVAlign = new Dictionary<Object, AlignItem>();
+		_attachedVAlign ??= new Dictionary<Object, AlignItem>();
 		AttachedHelpers.SetAttached(_attachedVAlign, obj, vAlign);
 	}
 
@@ -122,8 +118,7 @@ public class Grid : Container
 	{
 		get
 		{
-			if (_rows == null)
-				_rows = new RowDefinitions();
+			_rows ??= new RowDefinitions();
 			return _rows;
 		}
 		set
@@ -136,8 +131,7 @@ public class Grid : Container
 	{
 		get
 		{
-			if (_columns == null)
-				_columns = new ColumnDefinitions();
+			_columns ??= new ColumnDefinitions();
 			return _columns;
 		}
 		set
@@ -265,8 +259,7 @@ public class ColumnDefinitions : List<ColumnDefinition>
 		var coll = new ColumnDefinitions();
 		if (val.StartsWith("Repeat"))
 		{
-			var regex = new Regex(@"^Repeat\((.+)\)$");
-			var match = regex.Match(val.Trim());
+			var match = Regex.Match(val.Trim(), @"^Repeat\((.+)\)$");
 			if (match.Groups.Count < 2)
 				throw new XamlException($"Invalid repeat value '{val}'");
 
@@ -319,10 +312,8 @@ public class RowDefinitionsConverter : TypeConverter
 			return null;
 		if (value is RowDefinitions)
 			return value;
-		else if (value is String)
-		{
-			return RowDefinitions.FromString(value.ToString());
-		}
+		else if (value is String strVal)
+			return RowDefinitions.FromString(strVal);
 		return base.ConvertFrom(context, culture, value);
 	}
 }
@@ -344,10 +335,8 @@ public class ColumnDefinitionsConverter : TypeConverter
 			return null;
 		if (value is ColumnDefinitions)
 			return value;
-		else if (value is String)
-		{
-			return ColumnDefinitions.FromString(value.ToString());
-		}
+		else if (value is String strVal)
+			return ColumnDefinitions.FromString(strVal);
 		return base.ConvertFrom(context, culture, value);
 	}
 }
