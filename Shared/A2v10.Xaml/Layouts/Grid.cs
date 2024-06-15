@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
 using System;
 using System.Collections.Generic;
@@ -110,6 +110,8 @@ public class Grid : Container
 	public AlignItem AlignItems { get; set; }
 	public GapSize Gap { get; set; }
 	public Length MinWidth { get; set; }
+	public Length Width { get; set; }
+	public Overflow? Overflow { get; set; }
 
 	RowDefinitions _rows;
 	ColumnDefinitions _columns;
@@ -147,10 +149,13 @@ public class Grid : Container
 		var grid = new TagBuilder("div", "grid", IsInGrid);
 		onRender?.Invoke(grid);
 		MergeAttributes(grid, context);
+		grid.AddCssClass(Overflow.ToClass());
 		if (Height != null)
 			grid.MergeStyle("height", Height.Value);
 		if (MinWidth != null)
 			grid.MergeStyle("min-width", MinWidth.ToString());
+		if (Width != null)
+			grid.MergeStyle("width", Width.ToString());
 		if (_rows != null)
 			grid.MergeStyle("grid-template-rows", _rows.ToAttribute());
 		if (_columns != null)

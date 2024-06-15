@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
-/*20230830-7947*/
+/*20240528-7968*/
 // controllers/base.js
 
 (function () {
@@ -53,21 +53,17 @@
 	}
 
 	function isPermissionsDisabled(opts, arg) {
-		if (opts && opts.checkPermission) {
-			if (utils.isObjectExact(arg)) {
-				if (arg.$permissions) {
-					let perm = arg.$permissions;
-					let prop = opts.checkPermission;
-					if (prop in perm) {
-						if (!perm[prop])
-							return true;
-					} else {
-						console.error(`invalid permssion name: '${prop}'`);
-					}
-				}
-			}
+		if (!arg || !opts || !opts.checkPermission) return false;
+
+		let prop = opts.checkPermission;
+		if (!utils.isDefined(arg.$permissions)) {
+			console.warn('[!!Permissions] not found');
+			return true;
 		}
-		return false;
+		let perm = arg.$permissions;
+		if (prop in perm)
+			return !perm[prop];
+		return true;
 	}
 
 	const base = Vue.extend({
@@ -131,17 +127,47 @@
 			$marker() {
 				return true;
 			},
+			$isDisabledAlert(opts, arg) {
+				if (isPermissionsDisabled(opts, arg)) {
+					this.$alert(locale.$PermissionDenied);
+					return true;
+				}
+				return false;
+			},
 			$exec(cmd, arg, confirm, opts) {
 				if (this.$isReadOnly(opts)) return;
 				if (this.$isLoading) return;
 
-				if (isPermissionsDisabled(opts, arg)) {
-					this.$alert(locale.$PermissionDenied);
+				if (this.$isDisabledAlert(opts, arg))
 					return;
-				}
+
 				eventBus.$emit('closeAllPopups');
 				const root = this.$data;
 				return root._exec_(cmd, arg, confirm, opts);
+			},
+
+			$move(dir, arg) {
+				if (!arg) return;
+				arg.$parent.$move(arg, dir);
+			},
+
+			$moveSelected(dir, arg) {
+				if (!arg) return;
+				let sel = arg.$selected;
+				if (sel)
+					arg.$move(sel, dir);
+			},
+
+			$canMove(dir, arg) {
+				if (!arg) return false;
+				return arg.$parent.$canMove(arg, dir);
+			},
+
+			$canMoveSelected(dir, arg) {
+				if (!arg) return false;
+				let sel = arg.$selected;
+				if (!sel) return false;
+				return arg.$canMove(sel, dir);
 			},
 
 			async $invokeServer(url, arg, confirm, opts) {
@@ -189,6 +215,7 @@
 				else
 					this.$confirm(confirm).then(() => root._exec_(cmd, arg.$selected));
 			},
+			$isPermissionsDisabled: isPermissionsDisabled,
 			$canExecute(cmd, arg, opts) {
 				//if (this.$isLoading) return false; // do not check here. avoid blinking
 				if (this.$isReadOnly(opts))
@@ -441,7 +468,7 @@
 						// special element -> use url
 						dataToQuery.baseUrl = urltools.replaceUrlQuery(self.$baseUrl, dat.Query);
 						let newUrl = urltools.replaceUrlQuery(null/*current*/, dat.Query);
-						window.history.replaceState(null, null, newUrl);
+						store.replaceBrowseUrl(newUrl);
 					}
 					let jsonData = utils.toJson(dataToQuery);
 					dataservice.post(url, jsonData).then(function (data) {
@@ -574,7 +601,7 @@
 				}
 			},
 
-			$file(url, arg, opts) {
+			$file(url, arg, opts, dat) {
 				eventBus.$emit('closeAllPopups');
 				const root = window.$$rootUrl;
 				let id = arg;
@@ -585,7 +612,7 @@
 						token = arg[arg._meta_.$token];
 				}
 				let fileUrl = urltools.combine(root, '_file', url, id);
-				let qry = {};
+				let qry = dat || {};
 				let action = (opts || {}).action;
 				if (token)
 					qry.token = token;
@@ -653,10 +680,9 @@
 				if (!elem)
 					return;
 
-				if (isPermissionsDisabled(opts, elem)) {
-					this.$alert(locale.$PermissionDenied);
+				if (this.$isDisabledAlert(opts, elem))
 					return;
-				}
+
 				if (this.$isLoading) return;
 				eventBus.$emit('closeAllPopups');
 
@@ -701,8 +727,7 @@
 				if (this.$isLoading) return;
 				eventBus.$emit('closeAllPopups');
 				let sel = arr.$selected;
-				if (!sel)
-					return;
+				if (!sel) return;
 				this.$dbRemove(sel, confirm, opts);
 			},
 
@@ -736,7 +761,12 @@
 					let root = this.$data;
 					if (!root.$valid) return false;
 				}
-				return arr && !!arr.$selected;
+				let has = arr && !!arr.$selected;
+				if (!has)
+					return false;
+				if (isPermissionsDisabled(opts, arr.$selected))
+					return false;
+				return true;
 			},
 
 			$hasChecked(arr) {
@@ -804,10 +834,10 @@
 					alert(msg);
 			},
 
-			$toast(toast, style) {
+			$toast(toast, style, time) {
 				if (!toast) return;
 				if (utils.isString(toast))
-					toast = { text: toast, style: style || 'success' };
+					toast = { text: toast, style: style || 'success', time: time };
 				eventBus.$emit('toast', toast);
 			},
 
@@ -862,10 +892,8 @@
 
 				function doDialog() {
 					// result always is raw data
-					if (isPermissionsDisabled(opts, arg)) {
-						that.$alert(locale.$PermissionDenied);
+					if (that.$isDisabledAlert(opts, arg))
 						return;
-					}
 					if (utils.isFunction(query))
 						query = query();
 					let reloadAfter = opts && opts.reloadAfter;
@@ -879,7 +907,11 @@
 							});
 						case 'append':
 							if (argIsNotAnArray()) return;
-							return __runDialog(url, 0, query, (result) => { arg.$append(result); });
+							return __runDialog(url, 0, query, (result) => {
+								arg.$append(result);
+								if (reloadAfter)
+									that.$reload();
+							});
 						case 'browse':
 							if (!utils.isObject(arg)) {
 								console.error(`$dialog.${command}. The argument is not an object`);
@@ -895,6 +927,8 @@
 						case 'edit-selected':
 							if (argIsNotAnArray()) return;
 							if (!arg.$selected) return;
+							if (that.$isDisabledAlert(opts, arg.$selected))
+								return;
 							return __runDialog(url, arg.$selected, query, (result) => {
 								arg.$selected.$merge(result);
 								arg.__fireChange__('selected');
@@ -911,28 +945,23 @@
 						case 'edit':
 							if (argIsNotAnObject()) return;
 							return __runDialog(url, arg, query, (result) => {
-								if (result === 'reload')
-									that.$reload();
-								else if (arg.$merge && utils.isObjectExact(result)) {
+								if (arg.$merge && utils.isObjectExact(result))
 									arg.$merge(result);
-									if (reloadAfter)
-										that.$reload();
-								}
+								if (result === 'reload' || reloadAfter)
+									that.$reload();
 							});
 						case 'copy':
 							if (argIsNotAnObject()) return;
 							let arr = arg.$parent;
 							return __runDialog(url, arg, query, (result) => {
 								arr.$append(result);
-								if (reloadAfter) {
+								if (reloadAfter)
 									that.$reload();
-								}
 							});
 						default: // simple show dialog
 							return __runDialog(url, arg, query, (r) => {
-								if (reloadAfter) {
+								if (reloadAfter)
 									that.$reload();
-								}
 							});
 					}
 				}
@@ -959,7 +988,7 @@
 						id = utils.getStringId(arg);
 					const self = this;
 					const root = window.$$rootUrl;
-					let newurl = url ? urltools.combine('/_export', url, id) : self.$baseUrl.replace('/_page/', '/_export/');
+					let newurl = url ? urltools.combine('/_export', url, id) : self.$baseUrl.split('?')[0].replace('/_page/', '/_export/');
 					newurl = urltools.combine(root, newurl) + urltools.makeQueryString(dat);
 					window.location = newurl; // to display errors
 				};
@@ -994,7 +1023,9 @@
 					let padding = tbl.classList.contains('compact') ? 4 : 12;
 					htmlTools.getRowHeight(tbl, padding);
 				}
-				let html = '<table>' + tbl.innerHTML + '</table>';
+				const dateLocale = locale.$DateLocale || locale.$Locale;
+				const numLocale = locale.$NumberLocale || locale.$Locale;
+				let html = `<table data-num-locale="${numLocale}" data-date-locale="${dateLocale}">${tbl.innerHTML}</table>`;
 				let data = { format, html, fileName, zoom: +(window.devicePixelRatio).toFixed(2) };
 				const routing = require('std:routing');
 				let url = `${root}/${routing.dataUrl()}/exportTo`;
@@ -1128,9 +1159,10 @@
 			},
 
 			$showHelp(path) {
-				window.open(this.$helpHref(path), "_blank");
+				if (window.$$helpWindow && !window.$$helpWindow.closed)
+					window.$$helpWindow.close();
+				window.$$helpWindow = window.open(this.$helpHref(path), "_blank");
 			},
-
 			$helpHref(path) {
 				return urltools.helpHref(path);
 			},
@@ -1141,7 +1173,7 @@
 				this.$reload();
 			},
 
-			$saveModified(message, title) {
+			$saveModified(message, title, validRequired) {
 				if (!this.$isDirty)
 					return true;
 				if (this.isIndex)
@@ -1170,8 +1202,12 @@
 						closeImpl(false);
 					} else if (result === 'save') {
 						// save then close
+						if (validRequired && self.$data.$invalid) {
+							let errs = makeErrors(self.$data.$forceValidate());
+							self.$alert(locale.$MakeValidFirst, undefined, errs);
+							return false;
+						}
 						self.$save().then(function (saveResult) {
-							//console.dir(saveResult);
 							closeImpl(saveResult);
 						});
 					}
@@ -1436,6 +1472,7 @@
 					$focus: this.$focus,
 					$report: this.$report,
 					$upload: this.$upload,
+					$file: this.$file,
 					$emitCaller: this.$emitCaller,
 					$emitSaveEvent: this.$emitSaveEvent,
 					$emitGlobal: this.$emitGlobal,

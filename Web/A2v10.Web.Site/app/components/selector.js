@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2023 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
-/*20230613-7937*/
+/*20240429-7970*/
 // components/selector.js
 
 (function selector_component() {
@@ -30,10 +30,12 @@
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
 		<div class="selector-pane" v-if="isOpen" ref="pane" :class="paneClass">
 			<div class="selector-body" :style="bodyStyle">
-				<slot name="pane" :items="items" :is-item-active="isItemActive" :item-name="itemName" :hit="hit" :max-chars="maxChars" :slotStyle="slotStyle">
+				<slot name="pane" :items="items" :is-item-active="isItemActive" :item-name="itemName" :hit="hit" :max-chars="maxChars" :line-clamp="lineClamp" :slotStyle="slotStyle">
 					<ul class="selector-ul">
-						<li @mousedown.prevent="hit(itm)" :class="{active: isItemActive(itmIndex)}"
-							v-for="(itm, itmIndex) in items" :key="itmIndex" v-text="itemName(itm)"></li>
+						<li @mousedown.prevent="hit(itm)" :class="{'active': isItemActive(itmIndex)}"
+							v-for="(itm, itmIndex) in items" :key="itmIndex">
+							<span :style="itemStyle(itm)" :class="itemClass(itm, itmIndex)" :title="itemTitle(itm)" v-text="itemName(itm)"></span>
+						</li>
 					</ul>
 				</slot>
 			</div>
@@ -67,10 +69,12 @@
 			placement: String,
 			caret: Boolean,
 			hasClear: Boolean,
+			useAll: Boolean,
 			mode: String,
 			fetchCommand: String,
 			fetchCommandData: Object,
-			maxChars: Number
+			maxChars: Number,
+			lineClamp: Number
 		},
 		data() {
 			return {
@@ -107,6 +111,7 @@
 				if (!to) return false;
 				if (utils.isDefined(to.$isEmpty))
 					return !to.$isEmpty;
+				if (this.useAll && to.Id === -1) return false;
 				return !utils.isPlainObjectEmpty(to);
 			},
 			hasText() { return !!this.textProp; },
@@ -281,6 +286,22 @@
 						return;
 				}
 			},
+			itemTitle(itm) {
+				if (this.lineClamp > 0)
+					return this.itemName(itm)
+				return '';
+			},
+			itemStyle(itm) {
+				if (this.lineClamp > 0)
+					return { '-webkit-line-clamp': this.lineClamp };
+				return undefined;
+			},
+			itemClass(itm, itmIndex) {
+				let cls = '';
+				if (this.lineClamp > 0)
+					cls += ' line-clamp';
+				return cls;
+			},
 			hit(itm) {
 				let obj = this.item[this.prop];
 				this.query = this.valueText;
@@ -289,7 +310,7 @@
 				this.current = this.items.indexOf(itm);
 				this.$nextTick(() => {
 					if (this.hitfunc) {
-						this.hitfunc.call(this.item.$root, itm);
+						this.hitfunc.call(this.item.$root, itm, this.item, this.prop);
 						return;
 					}
 					if (obj && obj.$merge)
@@ -305,6 +326,12 @@
 				this.isOpen = false;
 				this.isOpenNew = false;
 				let obj = this.item[this.prop];
+				if (!obj) return;
+				if (this.useAll) {
+					obj.Id = -1;
+					obj.Name = '';
+					return;
+				} 
 				if (obj.$empty)
 					obj.$empty();
 				else if (utils.isObjectExact(obj))

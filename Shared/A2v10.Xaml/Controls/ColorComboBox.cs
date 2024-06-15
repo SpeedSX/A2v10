@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
 using System;
 using System.Collections.Generic;
@@ -12,6 +12,7 @@ public class ColorComboBoxItem : UIElementBase
 	public String Content { get; set; }
 	public Object Value { get; set; }
 	public String Color { get; set; }
+	public Boolean Outline { get; set; }
 	public override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 	{
 		throw new XamlException("Only bindings are supported");
@@ -28,6 +29,7 @@ public class ColorComboBox : ValuedControl, ITableControl
 {
 	public Object ItemsSource { get; set; }
 	public TextAlign Align { get; set; }
+	public Boolean DropUp { get; set; }
 
 	ColorComboBoxItems _children;
 
@@ -53,6 +55,8 @@ public class ColorComboBox : ValuedControl, ITableControl
 		combo.MergeAttribute("v-cloak", String.Empty);
 		MergeAttributes(combo, context);
 		MergeAlign(combo, context, Align);
+		if (DropUp)
+			combo.AddCssClass("drop-up");
 		SetSize(combo, nameof(ColorComboBox));
 		MergeDisabled(combo, context);
 		var isBind = GetBinding(nameof(ItemsSource));
@@ -76,6 +80,8 @@ public class ColorComboBox : ValuedControl, ITableControl
 					?? throw new XamlException("ColorComboBoxItem. Color binging must be specified");
 				if (colorBind != null)
 					combo.MergeAttribute(":color-prop", $"'{colorBind.Path}'"); /*without context!*/
+				if (elem.Outline)
+					combo.MergeAttribute(":outline", "true");
 			}
 		}
 		MergeValue(combo, context);

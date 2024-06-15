@@ -25,6 +25,8 @@
 @SetPassword=Ustaw hasło
 @Error=Błąd
 @Warning=Ostrzeżenie
+@Or=or
+
 ;
 @ResetPassword=Odzyskiwanie hasła
 @ResetPasswordBody=Kod potwierdzający odzyskanie hasła: <b>{0}</b>
@@ -83,6 +85,7 @@
 @Memo=Notatka
 ;
 @Confirm=Potwierdzenie
+@PasswordAgain=Potwierdzenie
 @ConfirmDeleteDocument=Usunąć dokument?
 @DocumentSaved=Dokument został pomyślnie zapisany
 ;
@@ -101,6 +104,7 @@
 @Login=Logowanie
 @UserName=Nazwa użytkownika
 @LoginPrompt=Zaloguj sie
+@SignInWith=Sign in with
 @RegisterPrompt=Rejestracja w systemie
 @ForgotPrompt=Odzyskiwanie hasła
 @ConfirmEMailPrompt=Potwierdzenie e-mail
@@ -123,6 +127,7 @@
 @PasswordLength=Hasło musi mieć co najmniej 6 znaków
 @InvalidLoginError=Nieprawidłowy e-mail lub hasło
 @InvalidEMailError=Nieprawidłowy email
+@InvalidOldPassword=Błędne stare hasło
 @UserLockuotError=Użytkownik został zablokowany.\nSpróbuj ponownie za kilka minut
 @EmailNotConfirmed=Twój e-mail nie został jeszcze zweryfikowany. (może e-mail trafił do spamu?)
 @AntiForgery=Nie można przetworzyć żądania.\nOdśwież stronę i spróbuj ponownie.\nMoże Twoja przeglądarka nie zezwala na pliki cookie?
@@ -155,3 +160,13 @@
 @CloseAllTabs=Close all tabs
 @OpenTabs=Open tabs
 @RecentlyClosedTabs=Recently closed
+;
+@TwoFactorPrompt=Two-factor authentication
+@Verify=Verify
+@AuthenticatorText=Open your two-factor authenticator (TOTP) app to view your authentication code.
+@UseAnotherAccount=Use another account
+@AuthenticationCode=Authentication code
+@LogOutPrompt=Log Out
+@LoginAgain=Login Again
+@LogOutMessage=You have successfully logged out of the application.
+;

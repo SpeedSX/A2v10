@@ -113,33 +113,39 @@ app.modules['std:const'] = function () {
 
 
 
-// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
+// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
-// 20230814-7943
+// 20240325-7964
 // services/utils.js
 
 app.modules['std:utils'] = function () {
 
 	const locale = require('std:locale');
 	const platform = require('std:platform');
-	const dateLocale = locale.$Locale;
-	const numLocale = locale.$Locale;
+	const dateLocale = locale.$DateLocale || locale.$Locale;
+	const numLocale = locale.$NumberLocale || locale.$Locale;
+
 	const _2digit = '2-digit';
 
-	const dateOptsDate = { timeZone: 'UTC', year: 'numeric', month: _2digit, day: _2digit };
-	const dateOptsTime = { timeZone: 'UTC', hour: _2digit, minute: _2digit };
+	const dateOptsDate = { year: 'numeric', month: _2digit, day: _2digit };
+	const dateOptsTime = { hour: _2digit, minute: _2digit };
 	
 	const formatDate = new Intl.DateTimeFormat(dateLocale, dateOptsDate).format;
 	const formatTime = new Intl.DateTimeFormat(dateLocale, dateOptsTime).format;
 
 	const currencyFormat = new Intl.NumberFormat(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6, useGrouping: true }).format;
-	const numberFormat = new Intl.NumberFormat(numLocale, { minimumFractionDigits: 0, maximumFractionDigits: 6, useGrouping: true }).format;
+	const nf = new Intl.NumberFormat(numLocale, { minimumFractionDigits: 0, maximumFractionDigits: 6, useGrouping: true });
+	const numberFormat = nf.format;
 
-	const utcdatRegEx = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
+	const parts = nf.formatToParts(1000.5);
+	const decimalSymbol = parts[3].value;
+	const groupingSymbol = parts[1].value;
+
+	const utcdatRegEx = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?$/;
 
 	let numFormatCache = {};
 
-	const zeroDate = new Date(Date.UTC(0, 0, 1, 0, 0, 0, 0));
+	const zeroDate = new Date(0, 0, 1, 0, 0, 0, 0);
 
 	return {
 		isArray: Array.isArray,
@@ -153,16 +159,16 @@ app.modules['std:utils'] = function () {
 		notBlank,
 		toJson,
 		fromJson: JSON.parse,
-		isPrimitiveCtor: isPrimitiveCtor,
+		isPrimitiveCtor,
 		isDateCtor,
 		isEmptyObject,
 		defineProperty: defProperty,
 		eval: evaluate,
-		simpleEval: simpleEval,
+		simpleEval,
 		format: format,
 		convertToString,
 		toNumber,
-		parse: parse,
+		parse,
 		getStringId,
 		isEqual,
 		ensureType,
@@ -187,7 +193,8 @@ app.modules['std:utils'] = function () {
 			minDate: dateCreate(1901, 1, 1),
 			maxDate: dateCreate(2999, 12, 31),
 			fromDays: fromDays,
-			parseTime: timeParse
+			parseTime: timeParse,
+			fromServer: dateFromServer
 		},
 		text: {
 			contains: textContains,
@@ -212,7 +219,8 @@ app.modules['std:utils'] = function () {
 		model: {
 			propFromPath
 		},
-		mergeTemplate
+		mergeTemplate,
+		mapTagColor
 	};
 
 	function isFunction(value) { return typeof value === 'function'; }
@@ -357,7 +365,7 @@ app.modules['std:utils'] = function () {
 		for (let i = 0; i < ps.length; i++) {
 			let pi = ps[i];
 			if (!(pi in r))
-				throw new Error(`Property '${pi}' not found in ${r.constructor.name} object`);
+				return '';
 			r = r[ps[i]];
 		}
 		return r;
@@ -385,6 +393,8 @@ app.modules['std:utils'] = function () {
 			case 'Currency':
 			case 'Number':
 				return toNumber(obj);
+			case 'Percent':
+				return toNumber(obj) / 100.0;
 			case 'Date':
 				return dateParse(obj);
 		}
@@ -483,7 +493,7 @@ app.modules['std:utils'] = function () {
 				if (dateIsZero(obj))
 					return '';
 				if (dateHasTime(obj))
-					return obj.toISOString();
+					return obj.toJSON();
 				return '' + obj.getFullYear() + pad2(obj.getMonth() + 1) + pad2(obj.getDate());
 			case 'Time':
 				if (!isDate(obj)) {
@@ -520,6 +530,12 @@ app.modules['std:utils'] = function () {
 					return '';
 
 				return formatNumber(obj, opts.format);
+			case 'Percent':
+				if (!isNumber(obj))
+					obj = toNumber(obj);
+				if (opts.hideZeros && obj === 0)
+					return '';
+				return formatNumber((+obj) * 100, opts.format) + '%';
 			default:
 				console.error(`Invalid DataType for utils.format (${dataType})`);
 		}
@@ -545,20 +561,23 @@ app.modules['std:utils'] = function () {
 	}
 
 	function toNumber(val) {
-		if (isString(val))
-			val = val.replace(/\s/g, '').replace(',', '.');
+		if (isString(val)) {
+			val = val.replaceAll(groupingSymbol, '');
+			val = val.replace(/\s|%/g, '').replace(',', '.');
+		}
 		return isFinite(val) ? +val : 0;
 	}
 
 	function dateToday() {
 		let td = new Date();
-		return new Date(Date.UTC(td.getFullYear(), td.getMonth(), td.getDate(), 0, 0, 0, 0));
+		td.setHours(0, 0, 0, 0);
+		return td;
 	}
 
 	function dateNow(second) {
 		let td = new Date();
 		let sec = second ? td.getSeconds() : 0;
-		return new Date(Date.UTC(td.getFullYear(), td.getMonth(), td.getDate(), td.getHours(), td.getMinutes(), sec, 0));
+		return new Date(td.getFullYear(), td.getMonth(), td.getDate(), td.getHours(), td.getMinutes(), sec, 0);
 	}
 
 	function dateZero() {
@@ -570,19 +589,19 @@ app.modules['std:utils'] = function () {
 		if (isDate(str)) return str;
 
 		if (utcdatRegEx.test(str)) {
-			return new Date(str);
+			return dateFromServer(str);
 		}
 
 		let dt;
 		if (str.length === 8) {
 			dt = new Date(+str.substring(0, 4), +str.substring(4, 6) - 1, +str.substring(6, 8), 0, 0, 0, 0);
 		} else if (str.startsWith('\"\\/\"')) {
-			dt = new Date(str.substring(4, str.length - 4));
+			dt = dateFromServer(str.substring(4, str.length - 4));
 		} else {
-			dt = new Date(str);
+			dt = dateFromServer(str);
 		}
 		if (!isNaN(dt.getTime())) {
-			return new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0, 0));
+			return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0, 0);
 		}
 		return str;
 	}
@@ -590,7 +609,7 @@ app.modules['std:utils'] = function () {
 	function string2Date(str) {
 		try {
 			let dt = new Date(str);
-			dt.setUTCHours(0, 0, 0, 0);
+			dt.setHours(0, 0, 0, 0);
 			return dt;
 		} catch (err) {
 			return str;
@@ -651,7 +670,7 @@ app.modules['std:utils'] = function () {
 			}
 			return +y;
 		};
-		let td = new Date(Date.UTC(+normalizeYear(seg[2]), +((seg[1] ? seg[1] : 1) - 1), +seg[0], 0, 0, 0, 0));
+		let td = new Date(+normalizeYear(seg[2]), +((seg[1] ? seg[1] : 1) - 1), +seg[0], 0, 0, 0, 0);
 		if (isNaN(td.getDate()))
 			return dateZero();
 		return td;
@@ -671,27 +690,37 @@ app.modules['std:utils'] = function () {
 
 	function dateHasTime(d1) {
 		if (!isDate(d1)) return false;
-		return d1.getUTCHours() !== 0 || d1.getUTCMinutes() !== 0 && d1.getUTCSeconds() !== 0;
+		return d1.getHours() !== 0 || d1.getMinutes() !== 0 && d1.getSeconds() !== 0;
 	}
 
 	function endOfMonth(dt) {
-		var dte = new Date(Date.UTC(dt.getFullYear(), dt.getMonth() + 1, 0, 0, 0, 0));
+		var dte = new Date(dt.getFullYear(), dt.getMonth() + 1, 0, 0, 0, 0);
 		return dte;
 	}
 
 	function dateCreate(year, month, day) {
-		let dt = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+		let dt = new Date(year, month - 1, day, 0, 0, 0, 0);
 		return dt;
 	}
 
 	function dateCreateTime(year, month, day, hour, min, sec) {
-		let dt = new Date(Date.UTC(year, month - 1, day, hour || 0, min || 0, sec || 0, 0));
+		let dt = new Date(year, month - 1, day, hour || 0, min || 0, sec || 0, 0);
 		return dt;
+	}
+
+	function dateFromServer(src) {
+		if (isDate(src))
+			return src;
+		let dx = new Date(src);
+		return dx;
 	}
 
 	function dateDiff(unit, d1, d2) {
 		if (d1.getTime() > d2.getTime())
 			[d1, d2] = [d2, d1];
+		let tz1 = d1.getTimezoneOffset();
+		let tz2 = d2.getTimezoneOffset();
+		let timezoneDiff = (tz1 - tz2) * 60 * 1000;
 		switch (unit) {
 			case "second":
 				return (d2 - d1) / 1000;
@@ -718,7 +747,7 @@ app.modules['std:utils'] = function () {
 				return month + delta;
 			case "day":
 				let du = 1000 * 60 * 60 * 24;
-				return Math.floor((d2 - d1) / du);
+				return Math.floor((d2 - d1 + timezoneDiff) / du);
 			case "year":
 				var dd = new Date(d1.getFullYear(), d2.getMonth(), d2.getDate(), d2.getHours(), d2.getMinutes(), d2.getSeconds(), d2.getMilliseconds());
 				let dy = dd < d1 ?
@@ -730,7 +759,7 @@ app.modules['std:utils'] = function () {
 	}
 
 	function fromDays(days) {
-		return new Date(Date.UTC(1900, 0, days, 0, 0, 0, 0));
+		return new Date(1900, 0, days, 0, 0, 0, 0);
 	}
 
 	function dateAdd(dt, nm, unit) {
@@ -739,18 +768,19 @@ app.modules['std:utils'] = function () {
 		var du = 0;
 		switch (unit) {
 			case 'year':
-				return new Date(Date.UTC(dt.getFullYear() + nm, dt.getMonth(), dt.getDate(), 0, 0, 0, 0));
+				return new Date(dt.getFullYear() + nm, dt.getMonth(), dt.getDate(), 0, 0, 0, 0);
 			case 'month':
 				// save day of month
 				let newMonth = dt.getMonth() + nm;
 				let day = dt.getDate();
-				var ldm = new Date(Date.UTC(dt.getFullYear(), newMonth + 1, 0, 0, 0)).getDate();
+				var ldm = new Date(dt.getFullYear(), newMonth + 1, 0, 0, 0).getDate();
 				if (day > ldm)
 					day = ldm;
-				var dtx = new Date(Date.UTC(dt.getFullYear(), newMonth, day, 0, 0, 0));
+				var dtx = new Date(dt.getFullYear(), newMonth, day, 0, 0, 0);
 				return dtx;
 			case 'day':
-				du = 1000 * 60 * 60 * 24;
+				// Daylight time!!!
+				return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + nm, 0, 0, 0, 0);
 				break;
 			case 'hour':
 				du = 1000 * 60 * 60;
@@ -793,6 +823,7 @@ app.modules['std:utils'] = function () {
 		return text.charAt(0).toUpperCase() + text.slice(1);
 	}
 	function maxChars(text, length) {
+		if (!text) return text;
 		text = '' + text || '';
 		if (text.length < length)
 			return text;
@@ -892,10 +923,10 @@ app.modules['std:utils'] = function () {
 
 	function debounce(fn, timeout) {
 		let timerId = null;
-		return function () {
+		return function (arg) {
 			clearTimeout(timerId);
 			timerId = setTimeout(() => {
-				fn.call();
+				fn.call(undefined, arg);
 			}, timeout);
 		};
 	}
@@ -908,7 +939,7 @@ app.modules['std:utils'] = function () {
 
 	function currencyRound(n, digits) {
 		if (isNaN(n))
-			return Nan;
+			return NaN;
 		if (!isDefined(digits))
 			digits = 2;
 		let m = false;
@@ -949,6 +980,29 @@ app.modules['std:utils'] = function () {
 			delegates: assign(src.delegates, tml.delegates),
 			options: assign(src.options, tml.options)
 		});
+	}
+
+	function mapTagColor(style) {
+		let tagColors = {
+			'cyan': '#60bbe5',
+			'green': '#5db750',
+			'olive': '#b5cc18',
+			'white': 'white',
+			'teal': '#00b5ad',
+			'tan': 'tan',
+			'red': '#da533f',
+			'blue': 'cornflowerblue',
+			'orange': '#ffb74d',
+			'seagreen': 'darkseagreen',
+			'null': '#8f94b0',
+			'gold': '#eac500',
+			'salmon': 'salmon',
+			'purple': 'mediumpurple',
+			'pink': 'hotpink',
+			'magenta': 'darkmagenta',
+			'lightgray': '#ccc'
+		};
+		return tagColors[style || 'null'] || '#8f94b0';
 	}
 };
 
@@ -1408,7 +1462,8 @@ app.modules['std:validators'] = function () {
 
 	return {
 		validate: validateItem,
-		removeWeak
+		removeWeak,
+		revalidate
 	};
 
 	function validateStd(rule, val) {
@@ -1434,6 +1489,35 @@ app.modules['std:validators'] = function () {
 
 	function removeWeak() {
 		validateMap = new WeakMap();
+	}
+
+	function revalidate(item, key, templ) {
+		if (!validateMap || !key || !templ || !templ.validators) return;
+		let rule = templ.validators[key];
+		if (!rule) return;
+
+		function doIt(rule) {
+			let elem = validateMap.get(rule);
+			if (!elem)
+				return;
+			if (elem.has(item)) {
+				let xval = elem.get(item);
+				if (xval) {
+					xval.val = undefined;
+					xval.result = null;
+				}
+			}
+		}
+
+		if (utils.isArray(rule)) {
+			rule.forEach(r => {
+				if (utils.isObject(r) && validateMap.has(r)) {
+					doIt(r);
+				}
+			});
+		} else if (utils.isObject(rule) && validateMap.has(rule)) {
+			doIt(rule);
+		}
 	}
 
 	function addToWeak(rule, item, val) {
@@ -1516,10 +1600,12 @@ app.modules['std:validators'] = function () {
 						let dm = { severity: sev, msg: rule.msg };
 						let nu = false;
 						if (utils.isString(result)) {
-							dm.msg = result;
-							valRes.result = dm;
-							retval.push(dm);
-							nu = true;
+							if (result) {
+								dm.msg = result;
+								valRes.result = dm;
+								retval.push(dm);
+								nu = true;
+							}
 						} else if (!result) {
 							retval.push(dm);
 							valRes.result = dm;
@@ -1566,9 +1652,9 @@ app.modules['std:validators'] = function () {
 
 
 
-// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
+// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
-/*20230807-7941*/
+/*20240227-7961*/
 /* services/impl/array.js */
 
 app.modules['std:impl:array'] = function () {
@@ -1620,6 +1706,16 @@ app.modules['std:impl:array'] = function () {
 			return null;
 		}
 
+		/* generator */
+		arr.$allItems = function* () {
+			for (let i = 0; i < this.length; i++) {
+				let el = this[i];
+				yield el;
+				if ('$items' in el)
+					yield* el.$items.$allItems();
+			}
+		};
+
 		arr.$sort = function (compare) {
 			this.sort(compare);
 			this.$renumberRows();
@@ -1667,6 +1763,35 @@ app.modules['std:impl:array'] = function () {
 			return this.$vm.$reload(this);
 		}
 
+		arr.$move = function (el, dir) {
+			if (!el) return;
+			let rowNoProp = el._meta_.$rowNo;
+			if (!rowNoProp) return;
+			let ix1 = this.indexOf(el);
+			let ix2 = 0;
+			if (dir === 'up') {
+				if (ix1 <= 0) return;
+				ix2 = ix1;
+				ix1 = ix2 - 1;
+			}
+			else if (dir === 'down') {
+				if (ix1 >= this.length - 1) return;
+				ix2 = ix1 + 1;
+			} else
+				return;
+			// swap ix1-ix2
+			let t = [this[ix1], this[ix2]];
+			this.splice(ix1, 2, t[1], t[0]);
+			this.$renumberRows();
+		}
+
+		arr.$canMove = function (el, dir) {
+			if (dir === 'up')
+				return this.indexOf(el) > 0;
+			else if (dir === 'down')
+				return this.indexOf(el) < this.length - 1;
+			return false;
+		}
 	}
 
 	function addResize(arr) {
@@ -1969,9 +2094,9 @@ app.modules['std:impl:array'] = function () {
 	}
 };
 
-/* Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.*/
+/* Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.*/
 
-/*20230807-7941*/
+/*20240405-7963*/
 // services/datamodel.js
 
 /*
@@ -1998,6 +2123,10 @@ app.modules['std:impl:array'] = function () {
 	const FLAG_DELETE = 4;
 	const FLAG_APPLY = 8;
 	const FLAG_UNAPPLY = 16;
+	const FLAG_CREATE = 32;
+	const FLAG_64 = 64;
+	const FLAG_128 = 128;
+	const FLAG_256 = 256;
 
 	const platform = require('std:platform');
 	const validators = require('std:validators');
@@ -2017,6 +2146,20 @@ app.modules['std:impl:array'] = function () {
 	function logtime(msg, time) {
 		if (!log) return;
 		log.time(msg, time);
+	}
+
+	function createPermissionObject(perm) {
+		return Object.freeze({
+			canView: !!(perm & FLAG_VIEW),
+			canEdit: !!(perm & FLAG_EDIT),
+			canDelete: !!(perm & FLAG_DELETE),
+			canApply: !!(perm & FLAG_APPLY),
+			canUnapply: !!(perm & FLAG_UNAPPLY),
+			canCreate: !!(perm & FLAG_CREATE),
+			canFlag64: !!(perm & FLAG_64),
+			canFlag128: !!(perm & FLAG_128),
+			canFlag256: !!(perm & FLAG_256)
+		});
 	}
 
 	function defHidden(obj, prop, value, writable) {
@@ -2066,7 +2209,7 @@ app.modules['std:impl:array'] = function () {
 				break;
 			case Date:
 				let srcval = source[prop] || null;
-				shadow[prop] = srcval ? new Date(srcval) : utils.date.zero();
+				shadow[prop] = srcval ? utils.date.fromServer(srcval) : utils.date.zero();
 				break;
 			case platform.File:
 			case Object:
@@ -2508,6 +2651,14 @@ app.modules['std:impl:array'] = function () {
 			return !this.$valid;
 		});
 
+		defPropertyGet(arr, "$permissions", function () {
+			let mi = arr.$ModelInfo;
+			if (!mi || !utils.isDefined(mi.Permissions))
+				return {};
+			let perm = mi.Permissions;
+			return createPermissionObject(perm);
+		});
+
 		if (ctor.prototype._meta_.$cross)
 			defPropertyGet(arr, "$cross", function () {
 				return ctor.prototype._meta_.$cross;
@@ -2652,13 +2803,7 @@ app.modules['std:impl:array'] = function () {
 					if (mi && utils.isDefined(mi.Permissions))
 						perm = mi.Permissions;
 				}
-				return Object.freeze({
-					canView: !!(perm & FLAG_VIEW),
-					canEdit: !!(perm & FLAG_EDIT),
-					canDelete: !!(perm & FLAG_DELETE),
-					canApply: !!(perm & FLAG_APPLY),
-					canUnapply: !!(perm & FLAG_UNAPPLY)
-				});
+				return createPermissionObject(perm);
 			});
 		}
 	}
@@ -2923,6 +3068,14 @@ app.modules['std:impl:array'] = function () {
 		return errs.length ? errs : null;
 	}
 
+	function revalidateItem(itm, valname) {
+		this.$defer(() => {
+			validators.revalidate(itm, valname, this.$template);
+			this._needValidate_ = true;
+			this._validateAll_(false);
+		});
+	}
+
 	function forceValidateAll() {
 		let me = this;
 		me._needValidate_ = true;
@@ -3111,8 +3264,9 @@ app.modules['std:impl:array'] = function () {
 						let dt = src[prop];
 						if (!dt)
 							platform.set(this, prop, utils.date.zero());
-						else
-							platform.set(this, prop, new Date(src[prop]));
+						else {
+							platform.set(this, prop, utils.date.fromServer(src[prop]));
+						}
 					} else if (utils.isPrimitiveCtor(ctor)) {
 						platform.set(this, prop, src[prop]);
 					} else {
@@ -3154,6 +3308,7 @@ app.modules['std:impl:array'] = function () {
 		root.prototype._validate_ = validate;
 		root.prototype._validateAll_ = validateAll;
 		root.prototype.$forceValidate = forceValidateAll;
+		root.prototype.$revalidate = revalidateItem;
 		root.prototype.$hasErrors = hasErrors;
 		root.prototype.$destroy = destroyRoot;
 		// props cache for t.construct

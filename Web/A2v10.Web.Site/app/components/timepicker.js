@@ -1,7 +1,7 @@
-﻿// Copyright © 2015-2020 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
-// 20200907-7706
-// components/datepicker.js
+// 20240154-7954
+// components/timepicker.js
 
 
 (function () {
@@ -13,6 +13,7 @@
 
 	const baseControl = component('control');
 	const locale = window.$$locale;
+	const dateLocale = locale.$DateLocale || locale.$Locale;
 
 	const timesheet = {
 		props: {
@@ -136,7 +137,7 @@
 			},
 			setHour(h) {
 				let nd = new Date(this.modelDate);
-				nd.setUTCHours(h);
+				nd.setHours(h);
 				this.item[this.prop] = nd;
 			},
 			setMinute(m) {
@@ -147,12 +148,12 @@
 			},
 			hourClass(h) {
 				let cls = '';
-				if (this.modelDate.getUTCHours() === +h)
+				if (this.modelDate.getHours() === +h)
 					cls += ' active';
 				return cls;
 			},
 			minuteClass(m) {
-				return this.modelDate.getUTCMinutes() === +m ? 'active' : undefined;
+				return this.modelDate.getMinutes() === +m ? 'active' : undefined;
 			},
 			cssClass2() {
 				let cx = this.cssClass();
@@ -176,7 +177,7 @@
 					let md = this.modelDate;
 					if (utils.date.isZero(md))
 						return '';
-					return md.toLocaleTimeString(locale.$Locale, { timeZone: 'UTC', hour: '2-digit', minute:"2-digit"});
+					return md.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: "2-digit" });
 				},
 				set(str) {
 					let md = new Date(this.modelDate);
@@ -184,9 +185,9 @@
 						if (utils.date.isZero(md))
 							md = utils.date.today();
 						let time = utils.date.parseTime(str);
-						md.setUTCHours(time.getHours(), time.getMinutes());
+						md.setHours(time.getHours(), time.getMinutes());
 					} else {
-						md.setUTCHours(0, 0);
+						md.setHours(0, 0);
 					}
 					this.item[this.prop] = md;
 					this.isOpen = false;

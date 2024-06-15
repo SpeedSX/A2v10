@@ -1,6 +1,6 @@
-﻿// Copyright © 2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2021-2024 Oleksandr Kukhtin. All rights reserved.
 
-/*20210608-7782*/
+/*20240201-7959*/
 /* controllers/mainview.js */
 
 (function () {
@@ -78,7 +78,7 @@
 		store,
 		template: `
 <div :class=cssClass class=main-view>
-	<component :is=navBarComponent :title=title :menu=menu v-if=isNavBarVisible 
+	<component :is=navBarComponent :menu=menu v-if=isNavBarVisible 
 		:period=period :is-navbar-menu=isNavBarMenu></component>
 	<component :is=sideBarComponent v-if=sideBarVisible :menu=menu :mode=sideBarMode></component>
 	<a2-content-view :pages=pages></a2-content-view>
@@ -305,9 +305,10 @@
 
 				if (dlg.attrs.canClose) {
 					let canResult = dlg.attrs.canClose();
-					//console.dir(canResult);
+
 					if (canResult === true)
 						closeImpl(result);
+
 					else if (canResult.then) {
 						result.then(function (innerResult) {
 							if (innerResult === true)

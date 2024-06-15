@@ -50,7 +50,7 @@ namespace A2v10.Web.Mvc.Controllers
 	[AllowAnonymous]
 	public class ApiController : Controller, IControllerTenant
 	{
-		private readonly A2v10.Request.BaseController _baseController = new BaseController();
+		private readonly A2v10.Request.BaseController _baseController = new();
 		private readonly ILogger _logger;
 		private readonly IDbContext _dbContext;
 
@@ -192,7 +192,7 @@ namespace A2v10.Web.Mvc.Controllers
 			}
 			if (!String.IsNullOrEmpty(wrapper))
 			{
-				ExpandoObject wrap = new ExpandoObject();
+				ExpandoObject wrap = new();
 				wrap.Set(wrapper, dataToInvoke);
 				dataToInvoke = wrap;
 			}
@@ -208,7 +208,7 @@ namespace A2v10.Web.Mvc.Controllers
 			if (!appReader.FileExists(htmlPath))
 				throw new FileNotFoundException($"File not found '{fullPath}'");
 			Response.ContentType = MimeMapping.GetMimeMapping(htmlPath);
-			StringBuilder sb = new StringBuilder(appReader.FileReadAllText(htmlPath));
+			StringBuilder sb = new (appReader.FileReadAllText(htmlPath));
 			String serverUrl = Request.Url.GetLeftPart(UriPartial.Authority);
 			sb.Replace("$(ServerUrl)", serverUrl);
 			Response.Write(sb.ToString());
@@ -277,18 +277,36 @@ namespace A2v10.Web.Mvc.Controllers
 				Response.AddHeader("Access-Control-Allow-Origin", ac.AllowOriginForCheck);
 
 				String json = null;
-				Request.InputStream.Seek(0, SeekOrigin.Begin); // ensure
-				using (var tr = new StreamReader(Request.InputStream))
+
+				ExpandoObject dataToInvoke = null;
+				if (Request.ContentType == "application/x-www-form-urlencoded")
 				{
-					json = tr.ReadToEnd();
-					_logger.LogApi($"request: {json}", Request.UserHostAddress, apiGuid);
-				}
-				ExpandoObject dataToInvoke = JsonConvert.DeserializeObject<ExpandoObject>(json, new ExpandoObjectConverter());
-				if (dataToInvoke == null)
 					dataToInvoke = new ExpandoObject();
+					var formData = new StringBuilder();
+					foreach (var key in Request.Form.AllKeys)
+					{
+						dataToInvoke.Set(key, Request.Form[key]);
+						if (formData.Length != 0)
+							formData.Append("&");
+						formData.Append($"{key}={Request.Form[key]}");
+					}
+					_logger.LogApi($"request: {formData}", Request.UserHostAddress, apiGuid);
+				}
+				else
+				{
+					Request.InputStream.Seek(0, SeekOrigin.Begin); // ensure
+					using (var tr = new StreamReader(Request.InputStream))
+					{
+						json = tr.ReadToEnd();
+						_logger.LogApi($"request: {json}", Request.UserHostAddress, apiGuid);
+					}
+					dataToInvoke = JsonConvert.DeserializeObject<ExpandoObject>(json, new ExpandoObjectConverter());
+				}
+				dataToInvoke ??= new ExpandoObject();
+
 				if (!String.IsNullOrEmpty(ac.wrapper))
 				{
-					ExpandoObject wrap = new ExpandoObject();
+					ExpandoObject wrap = new();
 					wrap.Set(ac.wrapper, dataToInvoke);
 					dataToInvoke = wrap;
 				}

@@ -25,6 +25,7 @@
 @SetPassword=Установить пароль
 @Error=Ошибка
 @Warning=Предупреждение
+@Or=или
 ;
 @ResetPassword=Восстановление пароля
 @ResetPasswordBody=Код подтверждения для восстановления пароля: <b>{0}</b>
@@ -83,6 +84,7 @@
 @Memo=Примечание
 ;
 @Confirm=Подтверждение
+@PasswordAgain=Пароль еще раз
 @ConfirmDeleteDocument=Удалить документ?
 @DocumentSaved=Документ сохранен успешно
 ;
@@ -101,6 +103,7 @@
 @Login=Войти
 @UserName=Имя
 @LoginPrompt=Вход в систему
+@SignInWith=Вход через
 @RegisterPrompt=Регистрация в системе
 @ForgotPrompt=Восстановление пароля
 @ConfirmEMailPrompt=Подтверждение е-mail
@@ -123,6 +126,7 @@
 @PasswordLength=пароль должен иметь длину не менее 6 символов
 @InvalidLoginError=Неправильный е-mail или пароль
 @InvalidEMailError=Неправильный е-mail
+@InvalidOldPassword=Неправильный старый пароль
 @UserLockuotError=Пользователь заблокирован.\nПопробуйте еще через несколько минут
 @EmailNotConfirmed=Ваш e-mail еще не подтвержден. (возможно письмо попало в спам?)
 @AntiForgery=Невозможно обработать запрос.\nОбновите страницу и попробуйте еще раз.\nВозможно в браузере запрещены cookies?
@@ -155,3 +159,13 @@
 @CloseAllTabs=Закрыть все вкладки
 @OpenTabs=Открытые вкладки
 @RecentlyClosedTabs=Недавно закрытые
+;
+@TwoFactorPrompt=Two-factor authentication
+@Verify=Verify
+@AuthenticatorText=Open your two-factor authenticator (TOTP) app to view your authentication code.
+@UseAnotherAccount=Use another account
+@AuthenticationCode=Authentication code
+@LogOutPrompt=Log Out
+@LoginAgain=Login Again
+@LogOutMessage=You have successfully logged out of the application.
+;

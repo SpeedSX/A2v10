@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
 using System;
 using A2v10.Infrastructure;
@@ -11,7 +11,6 @@ public enum SelectorStyle
 	ComboBox,
 	Hyperlink
 }
-
 
 public class Selector : ValuedControl, ITableControl
 {
@@ -35,9 +34,11 @@ public class Selector : ValuedControl, ITableControl
 
 	public Boolean? ShowCaret { get; set; }
 	public Boolean ShowClear { get; set; }
+	public Boolean UseAll { get; set; }
 
 	public SelectorStyle Style { get; set; }
 	public Int32 MaxChars { get; set; }
+	public Int32 LineClamp { get; set; }
 
 	public override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 	{
@@ -47,7 +48,10 @@ public class Selector : ValuedControl, ITableControl
 		onRender?.Invoke(input);
 		if (!String.IsNullOrEmpty(Delegate))
 			input.MergeAttribute(":fetch", $"$delegate('{Delegate}')");
-		if (!String.IsNullOrEmpty(Fetch))
+		var fetchBind = GetBinding(nameof(Fetch));
+		if (fetchBind != null)
+            input.MergeAttribute(":fetch-command", fetchBind.GetPathFormat(context));
+        else if (!String.IsNullOrEmpty(Fetch))
 			input.MergeAttribute("fetch-command", Fetch);
 		if (!String.IsNullOrEmpty(SetDelegate))
 			input.MergeAttribute(":hitfunc", $"$delegate('{SetDelegate}')");
@@ -70,8 +74,15 @@ public class Selector : ValuedControl, ITableControl
 			input.MergeAttribute(":caret", "true");
 		if (ShowClear)
 			input.MergeAttribute(":has-clear", "true");
-		if (MaxChars != 0)
+		if (UseAll)
+		{
+            input.MergeAttribute(":has-clear", "true");
+            input.MergeAttribute(":use-all", "true");
+        }
+        if (MaxChars != 0)
 			input.MergeAttribute(":max-chars", MaxChars.ToString());
+		if (LineClamp != 0)
+			input.MergeAttribute(":line-clamp", LineClamp.ToString());
 
 		var isBind = GetBinding(nameof(ItemsSource));
 		if (isBind != null)

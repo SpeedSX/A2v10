@@ -1,6 +1,6 @@
-﻿/* Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.*/
+﻿/* Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.*/
 
-/*20230807-7941*/
+/*20240405-7963*/
 // services/datamodel.js
 
 /*
@@ -27,6 +27,10 @@
 	const FLAG_DELETE = 4;
 	const FLAG_APPLY = 8;
 	const FLAG_UNAPPLY = 16;
+	const FLAG_CREATE = 32;
+	const FLAG_64 = 64;
+	const FLAG_128 = 128;
+	const FLAG_256 = 256;
 
 	const platform = require('std:platform');
 	const validators = require('std:validators');
@@ -46,6 +50,20 @@
 	function logtime(msg, time) {
 		if (!log) return;
 		log.time(msg, time);
+	}
+
+	function createPermissionObject(perm) {
+		return Object.freeze({
+			canView: !!(perm & FLAG_VIEW),
+			canEdit: !!(perm & FLAG_EDIT),
+			canDelete: !!(perm & FLAG_DELETE),
+			canApply: !!(perm & FLAG_APPLY),
+			canUnapply: !!(perm & FLAG_UNAPPLY),
+			canCreate: !!(perm & FLAG_CREATE),
+			canFlag64: !!(perm & FLAG_64),
+			canFlag128: !!(perm & FLAG_128),
+			canFlag256: !!(perm & FLAG_256)
+		});
 	}
 
 	function defHidden(obj, prop, value, writable) {
@@ -95,7 +113,7 @@
 				break;
 			case Date:
 				let srcval = source[prop] || null;
-				shadow[prop] = srcval ? new Date(srcval) : utils.date.zero();
+				shadow[prop] = srcval ? utils.date.fromServer(srcval) : utils.date.zero();
 				break;
 			case platform.File:
 			case Object:
@@ -537,6 +555,14 @@
 			return !this.$valid;
 		});
 
+		defPropertyGet(arr, "$permissions", function () {
+			let mi = arr.$ModelInfo;
+			if (!mi || !utils.isDefined(mi.Permissions))
+				return {};
+			let perm = mi.Permissions;
+			return createPermissionObject(perm);
+		});
+
 		if (ctor.prototype._meta_.$cross)
 			defPropertyGet(arr, "$cross", function () {
 				return ctor.prototype._meta_.$cross;
@@ -681,13 +707,7 @@
 					if (mi && utils.isDefined(mi.Permissions))
 						perm = mi.Permissions;
 				}
-				return Object.freeze({
-					canView: !!(perm & FLAG_VIEW),
-					canEdit: !!(perm & FLAG_EDIT),
-					canDelete: !!(perm & FLAG_DELETE),
-					canApply: !!(perm & FLAG_APPLY),
-					canUnapply: !!(perm & FLAG_UNAPPLY)
-				});
+				return createPermissionObject(perm);
 			});
 		}
 	}
@@ -952,6 +972,14 @@
 		return errs.length ? errs : null;
 	}
 
+	function revalidateItem(itm, valname) {
+		this.$defer(() => {
+			validators.revalidate(itm, valname, this.$template);
+			this._needValidate_ = true;
+			this._validateAll_(false);
+		});
+	}
+
 	function forceValidateAll() {
 		let me = this;
 		me._needValidate_ = true;
@@ -1140,8 +1168,9 @@
 						let dt = src[prop];
 						if (!dt)
 							platform.set(this, prop, utils.date.zero());
-						else
-							platform.set(this, prop, new Date(src[prop]));
+						else {
+							platform.set(this, prop, utils.date.fromServer(src[prop]));
+						}
 					} else if (utils.isPrimitiveCtor(ctor)) {
 						platform.set(this, prop, src[prop]);
 					} else {
@@ -1183,6 +1212,7 @@
 		root.prototype._validate_ = validate;
 		root.prototype._validateAll_ = validateAll;
 		root.prototype.$forceValidate = forceValidateAll;
+		root.prototype.$revalidate = revalidateItem;
 		root.prototype.$hasErrors = hasErrors;
 		root.prototype.$destroy = destroyRoot;
 		// props cache for t.construct

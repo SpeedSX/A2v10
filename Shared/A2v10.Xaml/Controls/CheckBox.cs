@@ -1,12 +1,11 @@
-﻿// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
 using System;
 
-namespace A2v10.Xaml
+namespace A2v10.Xaml;
+
+public class CheckBox : CheckBoxBase
 {
-	public class CheckBox : CheckBoxBase
-	{
-		internal override String ControlType => "checkbox";
-		internal override String InputControlType => "checkbox";
-	}
+	internal override String ControlType => "checkbox";
+	internal override String InputControlType => "checkbox";
 }

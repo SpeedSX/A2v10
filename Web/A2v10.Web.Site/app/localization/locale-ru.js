@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2020 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
-// 20200526-7662
+// 20240118-7967
 // locale-ru.js
 
 "use strict";
@@ -9,6 +9,8 @@
 
 	window.$$locale = {
 		$Locale: 'ru-RU',
+		$DateLocale: 'ru-RU',
+		$NumberLocale: 'ru-RU',
 		$Ok: 'OK',
 		$Cancel: 'Отмена',
 		$Close: 'Закрыть',
@@ -33,6 +35,8 @@
 		$Admin: 'администратор',
 		$Today: 'Сегодня',
 		$Yesterday: 'Вчера',
+		$Week: 'Неделя',
+		$Month: 'Месяц',
 		$CreateLC: 'создать',
 		$NoElements: 'нет элементов',
 		$PagerElements: 'элементы',
@@ -43,6 +47,7 @@
 		$EnterPassword: 'Введите пароль',
 		$MatchError: 'Пароль не совпадает с подтверждением',
 		$PasswordLength: 'Пароль должен иметь длину не менее 6 символов',
+		$PasswordAgain: 'Пароль еще раз',
 		$InvalidOldPassword: 'Неправильний старый пароль',
 		$ChangePasswordNotAllowed: 'Смена пароля запрещена',
 		$ChangePasswordSuccess: 'Пароль изменен успешно',
@@ -72,7 +77,8 @@
 		$FileTooLarge: 'Файл слишком большой. Размер файла должен быть не более {0} KB',
 		$DesktopNotSupported: 'Это действие не поддерживается в настольной версии',
 		$Settings: 'Настройка',
-		$Feedback: 'Обратная связь'
+		$Feedback: 'Обратная связь',
+		$PreviewIsUnavailable: 'Preview is unavailable for this file'
 	};
 
 	if (window.d3) {

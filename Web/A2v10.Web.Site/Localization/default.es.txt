@@ -25,6 +25,8 @@
 @SetPassword=Especificar contraseña
 @Error=Error
 @Warning=Aviso
+@Or=or
+
 ;
 @ResetPassword=Restablecer contraseña
 @ResetPasswordBody=Código de confirmación para recuperar la contraseña: <b>{0}</b>
@@ -83,6 +85,7 @@
 @Memo=Memo
 ;
 @Confirm=Confirmación
+@PasswordAgain=Confirmación
 @ConfirmDeleteDocument=¿Desea eliminar el documento?
 @DocumentSaved=Documento guardado correctamente
 ;
@@ -101,6 +104,7 @@
 @Login=Inicio de sesión
 @UserName=Nombre
 @LoginPrompt=Iniciar sesión en el sistema
+@SignInWith=Sign in with
 @RegisterPrompt=Registrarse en el sistema
 @ForgotPrompt=Recuperar contraseña
 @ConfirmEMailPrompt=Confirmar correo electrónico
@@ -123,6 +127,7 @@
 @PasswordLength=la contraseña debe tener al menos 6 caracteres
 @InvalidLoginError=correo electrónico o contraseña no válidos
 @InvalidEMailError=Dirección de correo electrónico no válida
+@InvalidOldPassword=La contraseña antigua es incorrecta
 @UserLockuotError=El usuario está bloqueado. Inténtelo de nuevo en unos minutos.
 @EmailNotConfirmed=Su correo electrónico aún no ha sido confirmado.
 @AntiForgery=No se ha podido procesar la solicitud, actualice la página e inténtelo de nuevo.
@@ -155,4 +160,14 @@
 @CloseAllTabs=Cerrar todas las pestañas
 @OpenTabs=Abrir pestañas
 @RecentlyClosedTabs=Pestañas cerradas recientemente
+;
+@TwoFactorPrompt=Two-factor authentication
+@Verify=Verify
+@AuthenticatorText=Open your two-factor authenticator (TOTP) app to view your authentication code.
+@UseAnotherAccount=Use another account
+@AuthenticationCode=Authentication code
+@LogOutPrompt=Log Out
+@LoginAgain=Login Again
+@LogOutMessage=You have successfully logged out of the application.
+;
 

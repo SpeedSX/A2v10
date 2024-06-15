@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
-// 20230911-7946
+// 20240309-7962
 // components/datepicker.js
 
 (function () {
@@ -12,6 +12,8 @@
 
 	const baseControl = component('control');
 	const locale = window.$$locale;
+	const dateLocale = locale.$DateLocale || locale.$Locale;
+	const monthLocale = locale.$Locale; // for text
 
 	Vue.component('a2-date-picker', {
 		extends: baseControl,
@@ -22,6 +24,7 @@
 		<input v-focus v-model.lazy="model" v-if="!isMonth" :class="inputClass" :readonly="inputDisabled"/>
 		<div class="month-wrapper" v-if=isMonth v-text=model></div>
 		<a href @click.stop.prevent="toggle($event)" tabindex="-1"><i class="ico ico-calendar"></i></a>
+		<a href v-if="clearVisible" @click.stop.prevent="clear($event)" tabindex="-1">✕</a>
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
 		<div class="calendar" v-if="isOpen">		
 			<a2-calendar :model="viewDate" :view="view" :current-model="modelDate"
@@ -39,7 +42,8 @@
 			// override control.align (default value)
 			align: { type: String, default: 'center' },
 			view: String,
-			yearCutOff: String
+			yearCutOff: String,
+			hasClear: Boolean
 		},
 		data() {
 			return {
@@ -62,6 +66,10 @@
 						this.updateModel(utils.date.today());
 				}
 				this.isOpen = !this.isOpen;
+			},
+			clear(ev) {
+				this.isOpen = false;
+				this.updateModel(utils.date.zero());
 			},
 			updateModel(date) {
 				this.item[this.prop] = date;
@@ -88,14 +96,14 @@
 				this.viewDate = dt;
 			},
 			selectDay(day) {
-				var dt = new Date(Date.UTC(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0));
+				var dt = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0);
 				this.setDate(dt);
 				this.isOpen = false;
 			},
 			setDate(d) {
 				// save time
 				let md = this.modelDate;
-				let nd = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), md.getUTCHours(), md.getUTCMinutes(), 0, 0));
+				let nd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), md.getHours(), md.getMinutes(), 0, 0);
 				nd = this.fitDate(nd);
 				this.updateModel(nd);
 			},
@@ -130,14 +138,17 @@
 			inputDisabled() {
 				return this.disabled || this.view === 'month';
 			},
+			clearVisible() {
+				return this.hasClear && !utils.date.isZero(this.modelDate);
+			},
 			model: {
 				get() {
 					if (utils.date.isZero(this.modelDate))
-						return '';
+						return '\u00A0'; /* avoid baseline problem */
 					if (this.view === 'month')
-						return utils.text.capitalize(this.modelDate.toLocaleString(locale.$Locale, { timeZone:'UTC',  year: 'numeric', month: 'long' }));
+						return utils.text.capitalize(this.modelDate.toLocaleString(monthLocale, { year: 'numeric', month: 'long' }));
 					else
-						return this.modelDate.toLocaleString(locale.$Locale, { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' });
+						return this.modelDate.toLocaleString(dateLocale, { year: 'numeric', month: '2-digit', day: '2-digit' });
 				},
 				set(str) {
 					let md = utils.date.parse(str, this.yearCutOff);

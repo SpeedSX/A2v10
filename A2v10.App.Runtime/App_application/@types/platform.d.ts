@@ -1,7 +1,7 @@
 ﻿
-/* Copyright © 2019-2023 Oleksandr Kukhtin. All rights reserved. */
+/* Copyright © 2019-2024 Oleksandr Kukhtin. All rights reserved. */
 
-/* Version 10.0.7940 */
+/* Version 10.0.7964 */
 
 declare function require(url: string): any;
 
@@ -114,6 +114,7 @@ interface IElementArray<T> extends Array<T> {
 	$renumberRows(): IElementArray<T>;
 	$copy(src: any[]): IElementArray<T>;
 	$sum(fn: (item: T) => number): number;
+	$allItems(): Generator<T>;
 }
 
 interface IRoot extends IElement {
@@ -127,6 +128,7 @@ interface IRoot extends IElement {
 	$defer(handler: () => any): void;
 	$emit(event: string, ...params: any[]): void;
 	$forceValidate(): void;
+	$revalidate(elem: IElement, rule: string): void;
 	$setDirty(dirty: boolean, path?: string): void;
 	$createModelInfo(elem: IElementArray<IElement>, modelInfo: IModelInfo): IModelInfo;
 	$hasErrors(props: string[]): boolean;
@@ -252,6 +254,22 @@ declare const enum ReportFormat {
 	'OpenSheet' = 'opensheet'
 }
 
+declare const enum AcceptFormat {
+	'excel' = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+	'word' = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+	'png' = 'image/png',
+	'jpeg' = 'image/jpeg',
+	'image' = 'image/*',
+	'pngjpeg' = 'image/png, image/jpeg',
+	'video' = 'video/*',
+	'audio' = 'audio/*',
+	'text' = 'text/plain',
+	'csv' = 'text/csv',
+	'zip' = 'application/zip',
+	'json' = 'application/json',
+	'pdf' = 'application/pdf'
+}
+
 interface IController {
 	$save(): Promise<object>;
 	$savePart(data: object, url: string, dialog?: boolean): Promise<object>;
@@ -267,11 +285,11 @@ interface IController {
 	$inlineOpen(id: string): void;
 	$inlineClose(id: string, result?: any): void;
 	$inlineDepth(): number;
-	$saveModified(msg?: string, title?: string): boolean;
+	$saveModified(msg?: string, title?: string, validRequired?: boolean): boolean;
 	$asyncValid(cmd: string, arg: object): any | Promise<any>;
-	$toast(text: string, style?: CommonStyle): void;
-	$toast(toast: { text: string, style?: CommonStyle }): void;
-	$notifyOwner(id: any, toast?: string | { text: string, style?: CommonStyle }): void;
+	$toast(text: string, style?: CommonStyle, timeout?: number): void;
+	$toast(toast: { text: string, style?: CommonStyle, timeout?: number }): void;
+	$notifyOwner(id: any, toast?: string | { text: string, style?: CommonStyle, timeout?: number }): void;
 	$navigate(url: string, data?: object, newWindow?: boolean, updateAfter?: IElementArray<IElement>): void;
 	$defer(handler: () => void): void;
 	$setFilter(target: any, prop: string, value: any): void;
@@ -279,7 +297,8 @@ interface IController {
 	$expand(elem: ITreeElement, prop: string, value: boolean): Promise<any>;
 	$focus(htmlid: string): void;
 	$report(report: string, arg: object, opts?: { export?: Boolean, attach?: Boolean, print?: Boolean, format?: ReportFormat }, url?: string, data?: object): void;
-	$upload(url: string, accept?: string, data?: { Id?: any, Key?: any }, opts?: { catchError?: boolean }): Promise<any>;
+	$upload(url: string, accept?: string | AcceptFormat, data?: { Id?: any, Key?: any }, opts?: { catchError?: boolean }): Promise<any>;
+	$file(url: string, arg: any, opts?: { action: FileActions }, data?: object): void;
 	$emitCaller(event: string, ...params: any[]): void;
 	$emitSaveEvent(): void;
 	$emitGlobal(event: string, data?: any): void;
@@ -329,7 +348,6 @@ interface IViewModel extends IController {
 	$setCurrentUrl(url: string): void;
 	$export(arg: any, url: string, data?: any, opts?: { saveRequired: boolean }): void;
 	$navigateSimple(url: string, data?: object, newWindow?: boolean, updateAfter?: IElementArray<IElement>): void;
-	$file(url: string, arg: any, opts?: { action: FileActions }): void;
 }
 
 // utilities
@@ -341,7 +359,8 @@ declare const enum DataType {
 	Date = "Date",
 	DateUrl = "DateUrl",
 	Time = "Time",
-	Period = "Period"
+	Period = "Period",
+	Percent = "Percent"
 }
 
 declare const enum DateTimeUnit {
@@ -429,6 +448,7 @@ interface Utils {
 	simpleEval(obj: any, path: string): any;
 
 	mergeTemplate(tml1: Template, tml2: Template): Template;
+	mapTagColor(style: string): string;
 
 	readonly date: UtilsDate;
 	readonly text: UtilsText;

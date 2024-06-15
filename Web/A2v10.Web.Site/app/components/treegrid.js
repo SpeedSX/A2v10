@@ -1,11 +1,21 @@
-﻿// Copyright © 2022-2023 Olekdsandr Kukhtin. All rights reserved.
+﻿// Copyright © 2022-2024 Olekdsandr Kukhtin. All rights reserved.
 
-// 20230625-7939
+// 20240128-7959
 // components/treegrid.js
 
 (function () {
 
 	const utils = require('std:utils');
+	const eventBus = require('std:eventBus');
+
+	let debouncedUpdate = utils.debounce((pane) => {
+		if (!pane) return;
+		let elem = pane.querySelector('.active');
+		if (!elem) return;
+		if (elem && elem.scrollIntoViewCheck)
+			elem.scrollIntoViewCheck();
+	}, 300);
+
 
 	let gridTemplate = `
 <table v-lazy="root">
@@ -14,7 +24,7 @@
 		<th class="c-m" v-if=isMarkCell :class=gridLines></th>
 		<slot name="header" v-bind:that="that"></slot>
 	</tr></thead>
-	<tbody>
+	<tbody ref="pane">
 		<tr v-for="(itm, ix) in rows" :class="rowClass(itm)" 
 				@click.stop="select(itm)" v-on:dblclick.prevent="dblClick($event, itm)">
 			<td class="c-m" v-if=isMarkCell :class="rowMarkClass(itm)"></td>
@@ -76,27 +86,33 @@
 				return this.markStyle === 'row' || this.markStyle === 'both';
 			}
 		},
-		watch: {
-			root() {
-				//console.dir('whatch items');
-			}
-		},
 		methods: {
 			toggle(itm) {
-				itm.$expanded = !itm.$expanded;
+				itm.$select(this.root);
+				if (itm.$expand) {
+					if (!itm.$expanded)
+						itm.$expand();
+					else
+						itm.$expanded = false;
+				}
+				else
+					itm.$expanded = !itm.$expanded;
 			},
 			select(itm) {
+				eventBus.$emit('closeAllPopups');
 				itm.elem.$select(this.root);
 			},
 			dblClick(evt, itm) {
+				eventBus.$emit('closeAllPopups');
 				evt.stopImmediatePropagation();
 				window.getSelection().removeAllRanges();
 				if (this.doubleclick)
 					this.doubleclick();
 			},
 			hasChildren(itm) {
+				var hc = utils.isDefined(itm.$hasChildren) && itm.$hasChildren;
 				let ch = itm[this.item];
-				return ch && ch.length > 0;
+				return hc || (ch && ch.length > 0);
 			},
 			isRowFolder(elm) {
 				if (this.hasChildren(elm))
@@ -147,6 +163,9 @@
 				prop = (prop || '').toLowerCase();
 				this.$parent.$emit('sort', prop);
 			}
+		},
+		updated() {
+			debouncedUpdate(this.$refs['pane']);
 		}
 	});
 })();

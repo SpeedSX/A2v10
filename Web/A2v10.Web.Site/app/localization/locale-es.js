@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
-// 20200526-7662
+// 20240118-7967
 // locale-es.js
 
 "use strict";
@@ -9,6 +9,8 @@
 
 	window.$$locale = {
 		$Locale: 'es-ES',
+		$DateLocale: 'es-ES',
+		$NumberLocale: 'es-ES',
 		$Ok: 'OK',
 		$Cancel: 'Cancelar',
 		$Close: 'Cerrar',
@@ -32,6 +34,8 @@
 		$DataModel: 'Modelo de datos',
 		$Admin: 'administrador',
 		$Today: 'Hoy',
+		$Week: 'Una semana',
+		$Month: 'Mes',
 		$Yesterday: 'Ayer',
 		$CreateLC: 'crear',
 		$NoElements: 'no items',
@@ -43,6 +47,7 @@
 		$EnterPassword: 'Introduzca la contraseña',
 		$MatchError: 'La contraseña y la confirmación no coinciden',
 		$PasswordLength: 'La contraseña debe tener al menos 6 caracteres',
+		$PasswordAgain: 'Confirmar',
 		$InvalidOldPassword: 'La contraseña antigua es incorrecta',
 		$ChangePasswordNotAllowed: 'El cambio de contraseña no está permitido',
 		$ChangePasswordSuccess: 'La contraseña se ha cambiado correctamente',
@@ -72,7 +77,8 @@
 		$FileTooLarge: 'El archivo es demasiado grande. El tamaño del archivo no debe exceder {0} KB',
 		$DesktopNotSupported: 'Esta operación no es compatible con la versión de escritorio',
 		$Settings:'Configuración',
-		$Feedback: 'Feedback'
+		$Feedback: 'Feedback',
+		$PreviewIsUnavailable: 'Preview is unavailable for this file'
 	};
 
 	if (window.d3) {

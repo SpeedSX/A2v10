@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2020 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
-// 20200526-7662
+// 20240118-7967
 // locale-uk.js
 
 "use strict";
@@ -9,6 +9,8 @@
 
 	window.$$locale = {
 		$Locale: 'uk-UA',
+		$DateLocale: 'uk-UA',
+		$NumberLocale: 'uk-UA',
 		$Ok: 'OK',
 		$Cancel: 'Скасувати',
 		$Close: 'Закрити',
@@ -32,6 +34,8 @@
 		$DataModel: 'Модель даних',
 		$Admin: 'адміністратор',
 		$Today: 'Сьогодні',
+		$Week: 'Тиждень',
+		$Month: 'Місяць',
 		$Yesterday: 'Вчора',
 		$CreateLC: 'cтворити',
 		$NoElements: 'немає елементів',
@@ -43,6 +47,7 @@
 		$EnterPassword: 'Введіть пароль',
 		$MatchError: 'Пароль та підтвердження не співпадають',
 		$PasswordLength: 'Пароль має містити принаймні 6 символів',
+		$PasswordAgain: 'Пароль ще раз',
 		$InvalidOldPassword: 'Неправильний старий пароль',
 		$ChangePasswordNotAllowed: 'Зміну пароля заборонено',
 		$ChangePasswordSuccess: 'Пароль змінено вдало',
@@ -72,7 +77,8 @@
 		$FileTooLarge: 'Файл занадто великий. Розмір файлу не повинен перевищувати {0} KB',
 		$DesktopNotSupported: 'Ця операція не підтримується в настільній версії',
 		$Settings:'Налаштування',
-		$Feedback: 'Зворотній зв\'язок'
+		$Feedback: 'Зворотній зв\'язок',
+		$PreviewIsUnavailable: 'Для цього файлу попередній перегляд неможливий'
 	};
 
 	if (window.d3) {
