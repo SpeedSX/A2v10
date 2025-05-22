@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
-/*20240227-7961*/
+/*20250202-7977*/
 /* services/impl/array.js */
 
 app.modules['std:impl:array'] = function () {
@@ -378,7 +378,7 @@ app.modules['std:impl:array'] = function () {
 		});
 
 		defPropertyGet(arr, "$hasChecked", function () {
-			return this.$checked && this.$checked.length;
+			return !!(this.$checked && this.$checked.length);
 		});
 	}
 
@@ -392,12 +392,16 @@ app.modules['std:impl:array'] = function () {
 		};
 
 		proto.$select = function (root) {
+			if (!root && this.$findTreeRoot)
+				root = this.$findTreeRoot();
 			let arr = root || this._parent_;
+
 			let sel = arr.$selected;
 			if (sel === this) return;
 			if (sel) sel.$selected = false;
 			this.$selected = true;
 			emitSelect(arr, this);
+
 			if (this._meta_.$items) {
 				// expand all parent items
 				let p = this._parent_._parent_;

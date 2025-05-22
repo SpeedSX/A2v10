@@ -1,40 +1,14 @@
-﻿// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
-// 20210606-7781
+// 20250204-7979
 // components/debug.js*/
 
 (function () {
-
-    /**
-     */
 
 	const http = require('std:http');
 	const urlTools = require('std:url');
 	const eventBus = require('std:eventBus');
 	const locale = window.$$locale;
-	const utils = require('std:utils');
-
-	const isZero = utils.date.isZero;
-
-	const specKeys = {
-		'$vm': null,
-		'$ctrl': null,
-		'$host': null,
-		'$root': null,
-		'$parent': null,
-		'$items': null
-	};
-
-	function toJsonDebug(data) {
-		return JSON.stringify(data, function (key, value) {
-			if (key[0] === '$')
-				return !(key in specKeys) ? value : undefined;
-			else if (key[0] === '_')
-				return undefined;
-			if (isZero(this[key])) return null;
-			return value;
-		}, 2);
-	}
 
 	const traceItem = {
 		name: 'a2-trace-item',
@@ -67,11 +41,20 @@
 	</div>
 	<div class="toolbar">
 		<button class="btn btn-tb" @click.prevent="refresh"><i class="ico ico-reload"></i> {{text('$Refresh')}}</button>
+		<template v-if="modelVisible">
+			<div class="divider"/>
+			<label class="btn btn-tb btn-checkbox" :class="{checked: useSpec}"
+				:title="text('$ShowSpecProps')">
+				<input type="checkbox" v-model="useSpec"/>
+				<i class="ico ico-list"/>
+			</label>
+			<button class="btn btn-tb" @click.prevent="expandAll"><i class="ico ico-arrow-sort"></i></button>
+		</template>
 		<div class="aligner"></div>
 		<button class="btn btn-tb" @click.prevent="toggle"><i class="ico" :class="toggleIcon"></i></button>
 	</div>
 	<div class="debug-model debug-body" v-if="modelVisible">
-		<pre class="a2-code" v-text="modelJson()"></pre>
+		<a2-json-browser :root="modelRoot()" :use-spec="useSpec" ref="modelJson"/>
 	</div>
 	<div class="debug-trace debug-body" v-if="traceVisible">
 		<ul class="a2-debug-trace">
@@ -100,7 +83,8 @@
 		data() {
 			return {
 				trace: [],
-				left: false
+				left: false,
+				useSpec: false
 			};
 		},
 		computed: {
@@ -123,23 +107,28 @@
 			},
 			panelClass() {
 				return this.left ? 'left' : 'right';
-			}
+			},
 		},
 		methods: {
-			modelJson() {
+			modelRoot() {
 				// method. not cached
 				if (!this.modelVisible)
-					return;
-				if (this.modelStack.length) {
-					return toJsonDebug(this.modelStack[0].$data);
-				}
-				return '';
+					return {};
+				if (this.modelStack.length)
+					return this.modelStack[0].$data;
+				return {};
 			},
 			refresh() {
 				if (this.modelVisible)
 					this.$forceUpdate();
 				else if (this.traceVisible)
 					this.loadTrace();
+			},
+			expandAll() {
+				if (!this.modelVisible) return;
+				let brw = this.$refs.modelJson;
+				if (!brw) return;
+				brw.expandAll();
 			},
 			toggle() {
 				this.left = !this.left;
@@ -164,6 +153,9 @@
 		watch: {
 			refreshCount() {
 				// dataModel stack changed
+				let brw = this.$refs.modelJson;
+				if (brw)
+					brw.clearExpanded();
 				this.$forceUpdate();
 			},
 			traceView(newVal) {
@@ -173,6 +165,7 @@
 		},
 		created() {
 			eventBus.$on('endRequest', (url) => {
+				if (!url) return;
 				if (url.indexOf('/_shell/trace') !== -1) return;
 				if (!this.traceVisible) return;
 				this.loadTrace();

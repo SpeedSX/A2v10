@@ -1,6 +1,6 @@
-﻿/* Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.*/
+﻿/* Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.*/
 
-/*20240405-7963*/
+/*20250512-7985*/
 // services/datamodel.js
 
 /*
@@ -121,7 +121,10 @@
 				break;
 			case TMarker: // marker for dynamic property
 				let mp = trg._meta_.markerProps[prop];
-				shadow[prop] = mp;
+				if (utils.isDefined(mp.type) && utils.isDefined(mp.value))
+					shadow[prop] = mp.value;
+				else
+					shadow[prop] = mp;
 				break;
 			case period.constructor:
 				shadow[prop] = new propCtor(source[prop]);
@@ -186,6 +189,7 @@
 		if (objname in props) {
 			for (let p in props[objname]) {
 				let propInfo = props[objname][p];
+				if (!propInfo) continue;
 				if (utils.isPrimitiveCtor(propInfo)) {
 					loginfo(`create scalar property: ${objname}.${p}`);
 					elem._meta_.props[p] = propInfo;
@@ -211,6 +215,7 @@
 		if (objname in props) {
 			for (let p in props[objname]) {
 				let propInfo = props[objname][p];
+				if (!propInfo) continue;
 				if (utils.isPrimitiveCtor(propInfo)) {
 					continue;
 				}
@@ -244,6 +249,16 @@
 			if (this.$expanded) return null;
 			let coll = this[this._meta_.$items];
 			return this.$vm.$expand(this, this._meta_.$items, true);
+		};
+		elem.$findTreeRoot = function () {
+			let p = this;
+			let r = null;
+			while (p && p !== this.$root) {
+				if (p._meta_ && p._meta_.$items)
+					r = p;
+				p = p._parent_;
+			}
+			return r ? r._parent_ : null;
 		};
 		elem.$selectPath = async function (arr, cb) {
 			if (!arr.length) return null;
@@ -363,12 +378,20 @@
 			defPropertyGet(elem, "$groupName", function () {
 				if (!utils.isDefined(this.$level))
 					return ERR_STR;
+				// !!! $level присваивается только в TreeSection!
 				// this.constructor.name == objectType;
 				const mi = this._root_.__modelInfo.Levels;
 				if (mi) {
 					const levs = mi[this.constructor.name];
-					if (levs && this.$level <= levs.length)
-						return this[levs[this.$level - 1]];
+					if (levs && this.$level <= levs.length) {
+						let xv = this[levs[this.$level - 1]];
+						if (!xv) return '';
+						if (utils.isObjectExact(xv))
+							return xv.$name;
+						else if (utils.isDate(xv))
+							return utils.format(xv, 'Date');
+						return xv;
+					}
 				}
 				console.error('invalid data for $groupName');
 				return ERR_STR;
@@ -386,8 +409,9 @@
 		}
 
 		function setDefaults(root) {
-			if (!root.$template || !root.$template.defaults)
-				return;
+			if (!root.$template || !root.$template.defaults) return false;
+			if (root.$isCopy) return false;
+			let called;
 			for (let p in root.$template.defaults) {
 				let px = p.lastIndexOf('.');
 				if (px === -1)
@@ -399,12 +423,14 @@
 				let def = root.$template.defaults[p];
 				let obj = utils.simpleEval(root, path);
 				if (obj.$isNew) {
+					called = true;
 					if (utils.isFunction(def))
 						platform.set(obj, prop, def.call(root, obj, prop));
 					else
 						platform.set(obj, prop, def);
 				}
 			}
+			return called;
 		}
 
 		let constructEvent = ctorname + '.construct';
@@ -439,9 +465,14 @@
 
 			elem._modelLoad_ = (caller) => {
 				_lastCaller = caller;
-				setDefaults(elem);
+				elem._setDefaults_();
 				elem._fireLoad_();
 				__initialized__ = true;
+			};
+
+			elem._setDefaults_ = () => {
+				if (setDefaults(elem))
+					elem.$emit('Model.defaults', elem);
 			};
 
 			elem._fireLoad_ = () => {
@@ -1050,6 +1081,8 @@
 		if (this.$root.$readOnly)
 			return;
 		this.$root.$emit('Model.dirty.change', val, `${path}.${prop}`);
+		if (this.$vm && this.$vm.isIndex)
+			return;
 		if (isNoDirty(this.$root))
 			return;
 		if (path && path.toLowerCase().startsWith('query'))

@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
-// 20240429-7970
+// 20250424-7975
 // components/datagrid.js*/
 
 (function () {
@@ -28,7 +28,7 @@
 		<colgroup>
 			<col v-if="isMarkCell" class="fit"/>
 			<col v-if="isRowDetailsCell" class="fit" />
-			<col v-bind:class="columnClass(col)" v-bind:style="columnStyle(col)" v-for="(col, colIndex) in columns" :key="colIndex"></col>
+			<col v-bind:class="columnClass(col, colIndex)" v-bind:style="columnStyle(col)" v-for="(col, colIndex) in columns" :key="colIndex"></col>
 		</colgroup>
 		<thead>
 			<tr v-show="isHeaderVisible">
@@ -134,13 +134,17 @@
 			small: { type: Boolean, default: undefined },
 			bold: String, //{ type: Boolean, default: undefined },
 			mark: String,
+			done: String,
 			controlType: String,
 			width: String,
+			minWidth:String,
 			fit: Boolean,
+			backColor: String,
 			wrap: String,
 			command: Object,
 			maxChars: Number,
 			lineClamp: Number,
+			colCssClass: String,
 			checkAll: String
 		},
 		created() {
@@ -239,6 +243,10 @@
 				if (this.small)
 					cssClass += ' small';
 				addClassBool(this.bold, ' bold');
+
+				if (this.colCssClass)
+					cssClass += ' ' + this.colCssClass
+
 				return cssClass.trim();
 			}
 		}
@@ -284,7 +292,7 @@
 				return h(tag, cellProps, [h(cellValid, { props: { item: row, col: col } })]);
 			}
 
-			if (!col.content && !col.icon && !col.bindIcon) {
+			if (!col.content && !col.icon && !col.bindIcon && !col.done) {
 				return h(tag, cellProps);
 			}
 
@@ -333,11 +341,13 @@
 					/*@click.prevent, no stop*/
 					template: '<a @click.prevent="doCommand($event)" :href="getHref()"><i v-if="hasIcon" :class="iconClass" class="ico"></i><span v-text="eval(row, col.content, col.dataType, col.evalOpts)"></span></a>',
 					computed: {
-						hasIcon() { return col.icon || col.bindIcon; },
+						hasIcon() { return col.icon || col.bindIcon || col.done; },
 						iconClass() {
 							let icoSingle = !col.content ? ' ico-single' : '';
 							if (col.bindIcon)
 								return 'ico-' + utils.eval(row, col.bindIcon) + icoSingle;
+							else if (col.done)
+								return (utils.eval(row, col.done) ? 'ico-success-outline-green' : 'ico-warning-outline-yellow') + icoSingle;
 							else if (col.icon)
 								return 'ico-' + col.icon + icoSingle;
 							return null;
@@ -394,6 +404,8 @@
 				chElems.unshift(h('i', { 'class': 'ico ico-' + col.icon + icoSingle }));
 			else if (col.bindIcon)
 				chElems.unshift(h('i', { 'class': 'ico ico-' + utils.eval(row, col.bindIcon) + icoSingle }));
+			else if (col.done)
+				chElems.unshift(h('i', { 'class': 'ico ico-' + (utils.eval(row, col.done) ? 'success-outline-green' : 'warning-outline-yellow') + icoSingle }));
 			/*TODO: validate ???? */
 			if (col.validate) {
 				chElems.push(h(validator, validatorProps));
@@ -750,17 +762,21 @@
 				let vis = item[this.rowDetailsVisible];
 				return !!vis;
 			},
-			columnClass(column) {
+			columnClass(column, ix) {
 				let cls = '';
 				if (column.fit || column.controlType === 'validator')
 					cls += 'fit';
 				if (this.sort && column.isSortable && utils.isDefined(column.dir))
 					cls += ' sorted';
+				if (column.backColor) {
+					cls += ` ${column.backColor}`;
+				}
 				return cls;
 			},
 			columnStyle(column) {
 				return {
-					width: utils.isDefined(column.width) ? column.width : undefined
+					width: utils.isDefined(column.width) ? column.width : undefined,
+					minWidth: utils.isDefined(column.minWidth) ? column.minWidth : undefined
 				};
 			},
 			doSort(order) {

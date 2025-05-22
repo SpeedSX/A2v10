@@ -1,7 +1,7 @@
 ﻿
-/* Copyright © 2019-2024 Oleksandr Kukhtin. All rights reserved. */
+/* Copyright © 2019-2025 Oleksandr Kukhtin. All rights reserved. */
 
-/* Version 10.0.7964 */
+/* Version 10.0.7977 */
 
 declare function require(url: string): any;
 
@@ -44,7 +44,7 @@ interface IArrayElement extends IElement {
 	$checked: boolean;
 	$remove(): void;
 	$select(root?: IElementArray<IElement>): void;
-	$move(dir: MoveDir): IArrayElement;
+	$move(dir: MoveDir): void;
 	$canMove(dir: MoveDir): boolean;
 }
 
@@ -244,6 +244,7 @@ interface Template {
 		[prop: string]: (this: IRoot, ...args: any[]) => any
 	};
 	loaded?: (data: object) => void;
+	utils?: any;
 }
 
 declare const enum ReportFormat {
@@ -305,6 +306,9 @@ interface IController {
 	$emitParentTab(event: string, data?: any): void;
 	$nodirty(func: () => Promise<any>): void;
 	$showSidePane(url: string, arg?: string | number, data?: object): void;
+	$hideSidePane(): void;
+	$longOperation(action: () => Promise<any>): Promise<any>;
+	$requeryNew(id: any): void;
 }
 
 interface IMessage {
@@ -348,6 +352,7 @@ interface IViewModel extends IController {
 	$setCurrentUrl(url: string): void;
 	$export(arg: any, url: string, data?: any, opts?: { saveRequired: boolean }): void;
 	$navigateSimple(url: string, data?: object, newWindow?: boolean, updateAfter?: IElementArray<IElement>): void;
+	$navigateExternal(url: string, newWindow?: boolean): void;
 }
 
 // utilities
@@ -356,6 +361,7 @@ declare const enum DataType {
 	Currency = "Currency",
 	Number = "Number",
 	DateTime = "DateTime",
+	DateTime2 = "DateTime2",
 	Date = "Date",
 	DateUrl = "DateUrl",
 	Time = "Time",
@@ -397,10 +403,12 @@ interface UtilsDate {
 	compare(d1: Date, d2: Date): number;
 	diff(unit: DateUnit, d1: Date, d2: Date): number;
 	endOfMonth(d: Date): Date;
-	format(d: number | Date): string;
+	format(d: number | Date, format?: string): string;
 	formatDate(d: number | Date): string;
 	parse(str: string): Date;
 	tryParse(str: string): Date | string;
+	int2time(val: number): string;
+	time2int(time: string): number;
 }
 
 interface UtilsText {

@@ -1,6 +1,7 @@
-﻿// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
 @import "Utlis.less";
+@import "Variables.less";
 
 @debug-pane-width: 390px;
 @debug-pane-bg-color: @whitesmoke-gray-bg-color;
@@ -11,7 +12,7 @@
 	position: absolute;
 	right: 0;
 	//top: @header-height;
-	top:0;
+	top: 0;
 	bottom: @footer-height;
 	right: 0;
 	z-index: @debug-index;
@@ -24,7 +25,7 @@
 	flex-direction: column;
 
 	.a2-code {
-		font-size:12px;
+		font-size: 12px;
 	}
 
 	&.left {
@@ -59,8 +60,30 @@
 	}
 
 	.toolbar {
-		min-height: 2.5rem;
-		height: 2.5rem;
+		min-height: 2.8rem;
+		height: 2.8rem;
+
+		.btn-checkbox {
+			cursor: pointer;
+			padding: 4px 5px 5px 6px;
+			border: 1px solid transparent;
+
+			&:hover {
+				border: 1px solid #e5c365;
+				outline: 0;
+			}
+
+			&.checked {
+				background-color: #cde6f7;
+				outline: 1px solid #999;
+				outline-offset: -1px;
+
+				&:hover {
+					background-color: #fdf4bf;
+					border-color: #e5c365;
+				}
+			}
+		}
 	}
 
 	.debug-body {
@@ -131,4 +154,75 @@
 			}
 		}
 	}
+}
+
+
+.a2-json-b {
+	font-family: @monospace-font;
+	padding: 6px;
+	margin: 0;
+
+	ul {
+		padding: 0 0 0 16px;
+	}
+
+	li {
+		list-style: none;
+		line-height: normal;
+		margin: 0;
+		padding: 0;
+		cursor: default;
+	}
+
+	.jb-label {
+		display: inline-flex;
+		align-items: center;
+
+		.jbp-overlay {
+			display: inline-flex;
+			align-items: start;
+		}
+
+		.jb-chevron {
+			min-width: 16px;
+			cursor: pointer;
+		}
+	}
+
+	.jbp-name {
+		color: darkmagenta;
+		font-weight: 600;
+		white-space: nowrap;
+	}
+
+	.jbp-value {
+		padding-left: 6px;
+		color: #555;
+	}
+
+	.jbp-edit {
+		font-size: 13px;
+		cursor: pointer;
+		display: none;
+		color: #555;
+	}
+
+	.jbp-value:hover .jbp-edit {
+		/*display:inline; TODO: edit value */
+	}
+
+	.jbp-string {
+		color: indianred;
+	}
+
+	.jbp-object {
+		font-style: italic;
+		color: darkcyan;
+	}
+}
+
+.a2-json-view {
+	background-color: white;
+	overflow: auto;
+	border: 1px solid @default-brd-color;
 }

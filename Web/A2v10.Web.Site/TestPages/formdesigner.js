@@ -153,6 +153,7 @@ Vue.component('a2-formdesigner', {
 	props: {
 		items: Array,
 		list: Array,
+		tools: Array,
 		columns: Number,
 		editable: Boolean,
 		editMode: false,

@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
-/*20240429-7970*/
+/*20250421-7982*/
 // components/selector.js
 
 (function selector_component() {
@@ -23,7 +23,7 @@
 		<div v-if="isCombo" class="selector-combo" @click.stop.prevent="open"><span tabindex="-1" class="select-text" v-text="valueText" @keydown="keyDown" ref="xcombo"/></div>
 		<input v-focus v-model="query" :class="inputClass" :placeholder="placeholder" v-else
 			@input="debouncedUpdate" @blur.stop="blur" @keydown="keyDown" @keyup="keyUp" ref="input" 
-			:disabled="disabled" @click="clickInput($event)" :tabindex="tabIndex"/>
+			:readonly="disabled" @click="clickInput($event)" :tabindex="tabIndex"/>
 		<slot></slot>
 		<a class="selector-open" href="" @click.stop.prevent="open" v-if="caret"><span class="caret"></span></a>
 		<a class="selector-clear" href="" @click.stop.prevent="clear" v-if="clearVisible" tabindex="-1">&#x2715</a>
@@ -74,7 +74,8 @@
 			fetchCommand: String,
 			fetchCommandData: Object,
 			maxChars: Number,
-			lineClamp: Number
+			lineClamp: Number,
+			highlight: Boolean,
 		},
 		data() {
 			return {
@@ -102,6 +103,13 @@
 				}
 				return utils.simpleEval(el, this.display);
 			},
+			hasValue() {
+				if (!this.highlight) return false;
+				if (!this.item) return false;
+				let el = this.item[this.prop];
+				if (utils.isObjectExact(el) && el.Id && el.Id != -1)
+					return true;
+			},
 			canNew() {
 				return !!this.createNew;
 			},
@@ -109,9 +117,9 @@
 				if (!this.hasClear) return false;
 				let to = this.item[this.prop];
 				if (!to) return false;
+				if (this.useAll && to.Id === -1) return false;
 				if (utils.isDefined(to.$isEmpty))
 					return !to.$isEmpty;
-				if (this.useAll && to.Id === -1) return false;
 				return !utils.isPlainObjectEmpty(to);
 			},
 			hasText() { return !!this.textProp; },
@@ -187,6 +195,8 @@
 					cx += ' selector-hyperlink';
 				else if (this.mode === 'combo-box')
 					cx += ' selector-combobox';
+				if (this.hasValue)
+					cx += ' has-value';
 				return cx;
 			},
 			isItemActive(ix) {

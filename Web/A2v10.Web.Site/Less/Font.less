@@ -1,4 +1,4 @@
-﻿/* icon colors */
+﻿// icon colors 
 
 @icon-blue: #034989;
 @icon-green: #3a8b37;
@@ -11,11 +11,13 @@
 @icon-inline-color: #8591a2;
 @icon-a2-color: #dd2c5e;
 
+// free: e939, e93a, e93b, e93f, e942, e952 
+
 @font-face {
 	font-family: 'A2v10';
 	font-display: fallback;
 	src: url('/css/fonts/A2v10.eot');
-	src: url('/css/fonts/A2v10.eot?#iefix') format('eot'), url('/css/fonts/A2v10.woff?v=7967') format('woff'), url('/css/fonts/A2v10.ttf?v=7967') format('truetype'), url('/css/fonts/A2v10.svg#A2v10') format('svg');
+	src: url('/css/fonts/A2v10.eot?#iefix') format('eot'), url('/css/fonts/A2v10.woff?v=7972') format('woff'), url('/css/fonts/A2v10.ttf?v=7972') format('truetype'), url('/css/fonts/A2v10.svg#A2v10') format('svg');
 	font-weight: normal;
 	font-style: normal;
 }
@@ -254,6 +256,7 @@
 .ico-camera:before {
 	content: "\e9a1";
 }
+
 
 .ico-chart-area:before {
 	content: "\e922";
@@ -511,6 +514,11 @@
 	color: @icon-light-red !important;
 }
 
+.ico-failure-outline-red:before {
+	content: "\ea05";
+	color: @icon-light-red !important;
+}
+
 .ico-file:before {
 	content: "\e9dd";
 }
@@ -590,6 +598,10 @@
 
 .ico-folder-outline:before {
 	content: "\e95a";
+}
+
+.ico-folder-move-to:before {
+	content: "\e957";
 }
 
 .ico-folders-outline:before {
@@ -821,6 +833,11 @@
 	content: "\ea09";
 }
 
+.ico-info-outline-blue:before {
+	content: "\ea09";
+	color: @icon-light-blue !important;
+}
+
 .ico-paste:before {
 	content: "\e94e";
 }
@@ -836,6 +853,11 @@
 
 .ico-success-outline:before {
 	content: "\ea13";
+}
+
+.ico-success-outline-green:before {
+	content: "\ea13";
+	color: @icon-light-green !important;
 }
 
 .ico-waiting:before {
@@ -862,6 +884,11 @@
 
 .ico-warning-outline:before {
 	content: "\ea17";
+}
+
+.ico-warning-outline-yellow:before {
+	content: "\ea17";
+	color: @icon-light-yellow !important;
 }
 
 .ico-trash:before {
@@ -1150,4 +1177,20 @@
 
 .ico-smile-sad:before {
 	content: "\eacb";
+}
+
+.ico-bookmark::before {
+	content: "\e920";
+}
+
+.ico-code::before {
+	content: "\e921";
+}
+
+.ico-code-check::before {
+	content: "\e92b";
+}
+
+.ico-variable::before {
+	content: "\e92c";
 }

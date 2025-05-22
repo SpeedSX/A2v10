@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
 using System;
 using System.Text;
@@ -36,7 +36,9 @@ public class Dialog : RootContainer, ISupportTwoPhaseRendering
 	public Length Width { get; set; }
 	public Length MinWidth { get; set; }
 	public Length Height { get; set; }
-	public String CanCloseDelegate { get; set; }
+    public Length MinHeight { get; set; }
+
+    public String CanCloseDelegate { get; set; }
 	public Boolean AlwaysOk { get; set; }
 	public UIElementBase Taskpad { get; set; }
 	public Boolean ShowWaitCursor { get; set; }
@@ -112,7 +114,10 @@ public class Dialog : RootContainer, ISupportTwoPhaseRendering
 		OnCreateContent(content);
 		if (Height != null)
 		{
-			content.MergeStyle("min-height", Height.Value);
+            if (MinHeight != null)
+                content.MergeStyle("min-height", MinHeight.Value);
+            else
+                content.MergeStyle("min-height", Height.Value);
 			content.MergeStyle("height", Height.Value);
 		}
 		Padding?.MergeStyles("padding", content);
@@ -120,7 +125,8 @@ public class Dialog : RootContainer, ISupportTwoPhaseRendering
 		if (Background != BackgroundStyle.Default)
 			content.AddCssClass("background-" + Background.ToString().ToKebabCase());
 		content.AddCssClassBool(Overflow, "overflow");
-		content.RenderStart(context);
+        content.AddCssClass(CssClass);
+        content.RenderStart(context);
 		if (Taskpad != null)
 		{
 			var gridContent = new TagBuilder("div", "dialog-grid-content");

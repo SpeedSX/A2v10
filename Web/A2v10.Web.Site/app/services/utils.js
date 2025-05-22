@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
-// 20240325-7964
+// 20241221-7973
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -14,9 +14,11 @@ app.modules['std:utils'] = function () {
 
 	const dateOptsDate = { year: 'numeric', month: _2digit, day: _2digit };
 	const dateOptsTime = { hour: _2digit, minute: _2digit };
+	const dateOptsTime2 = { hour: _2digit, minute: _2digit, second: _2digit };
 	
 	const formatDate = new Intl.DateTimeFormat(dateLocale, dateOptsDate).format;
 	const formatTime = new Intl.DateTimeFormat(dateLocale, dateOptsTime).format;
+	const formatTime2 = new Intl.DateTimeFormat(dateLocale, dateOptsTime2).format;
 
 	const currencyFormat = new Intl.NumberFormat(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6, useGrouping: true }).format;
 	const nf = new Intl.NumberFormat(numLocale, { minimumFractionDigits: 0, maximumFractionDigits: 6, useGrouping: true });
@@ -68,7 +70,7 @@ app.modules['std:utils'] = function () {
 			equal: dateEqual,
 			isZero: dateIsZero,
 			formatDate: formatDate,
-			format: formatDate,
+			format: formatDateWithFormat,
 			add: dateAdd,
 			diff: dateDiff,
 			create: dateCreate,
@@ -79,7 +81,9 @@ app.modules['std:utils'] = function () {
 			maxDate: dateCreate(2999, 12, 31),
 			fromDays: fromDays,
 			parseTime: timeParse,
-			fromServer: dateFromServer
+			fromServer: dateFromServer,
+			int2time,
+			time2int
 		},
 		text: {
 			contains: textContains,
@@ -260,7 +264,7 @@ app.modules['std:utils'] = function () {
 		let r = simpleEval(obj, path);
 		if (skipFormat) return r;
 		if (isDate(r))
-			return format(r, dataType);
+			return format(r, dataType, opts);
 		else if (isObject(r))
 			return toJson(r);
 		else
@@ -321,14 +325,38 @@ app.modules['std:utils'] = function () {
 		return formatFunc(num);
 	}
 
+	function formatDateFormat2(date, format) {
+		if (!date) return '';
+		const parts = {
+			yyyy: date.getFullYear(),
+			yy: ('' + date.getFullYear()).substring(2),
+			MM: pad2(date.getMonth() + 1),
+			dd: pad2(date.getDate()),
+			HH: pad2(date.getHours()),
+			hh: pad2(date.getHours() > 12 ? date.getHours() - 12 : date.getHours()),
+			mm: pad2(date.getMinutes()),
+			ss: pad2(date.getSeconds()),
+			tt: date.getHours() < 12 ? 'AM' : 'PM'
+		};
+		return format.replace(/yyyy|yy|MM|dd|HH|hh|mm|ss|tt/g, (match) => parts[match]);
+	}
+
 	function formatDateWithFormat(date, format) {
 		if (!format)
 			return formatDate(date);
 		switch (format) {
+			case 'dd.MM':
+				return `${pad2(date.getDate())}.${pad2(date.getMonth() + 1)}`;
+			case 'ddMMyyyy':
+				return '' + pad2(date.getDate()) + pad2(date.getMonth() + 1) + date.getFullYear();
+			case 'dd.MM.yyyy HH:mm:ss':
+				return `${formatDate(date)}  ${formatTime2(date)}`;
+			case 'MM.yyyy':
+				return `${pad2(date.getMonth() + 1)}.${date.getFullYear()}`;
 			case 'MMMM yyyy':
 				return capitalize(date.toLocaleDateString(locale.$Locale, { month: 'long', year: 'numeric' }));
 			default:
-				console.error('invalid date format: ' + format);
+				return formatDateFormat2(date, format);
 		}
 		return formatDate(date);
 	}
@@ -351,6 +379,7 @@ app.modules['std:utils'] = function () {
 			return '';
 		switch (dataType) {
 			case "DateTime":
+			case "DateTime2":
 				if (!obj) return '';
 				if (!isDate(obj)) {
 					console.error(`Invalid Date for utils.format (${obj})`);
@@ -360,7 +389,8 @@ app.modules['std:utils'] = function () {
 					return '';
 				if (opts.format)
 					return formatDateWithFormat(obj, opts.format);
-				return formatDate(obj) + ' ' + formatTime(obj);
+				let fnTime = dataType === "DateTime2" ? formatTime2 : formatTime;
+				return `${formatDate(obj)} ${fnTime(obj)}`;
 			case "Date":
 				if (!obj) return '';
 				if (isString(obj))
@@ -872,21 +902,37 @@ app.modules['std:utils'] = function () {
 			'cyan': '#60bbe5',
 			'green': '#5db750',
 			'olive': '#b5cc18',
-			'white': 'white',
+			'white': '#ffffff',
 			'teal': '#00b5ad',
-			'tan': 'tan',
+			'tan': '#d2b48c',      // tan,
 			'red': '#da533f',
-			'blue': 'cornflowerblue',
+			'blue': '#6495ed',     //cornflowerblue
 			'orange': '#ffb74d',
-			'seagreen': 'darkseagreen',
+			'seagreen': '#8fbc8f', // darkseagreen
 			'null': '#8f94b0',
 			'gold': '#eac500',
-			'salmon': 'salmon',
-			'purple': 'mediumpurple',
-			'pink': 'hotpink',
-			'magenta': 'darkmagenta',
-			'lightgray': '#ccc'
+			'salmon': '#fa8072',   //salmon
+			'purple': '#9370db',   // mediumpurple
+			'pink': '#ff69b4',     // hotpink
+			'magenta': '#8b008b',  // darkmagenta
+			'lightgray': '#cccccc'
 		};
 		return tagColors[style || 'null'] || '#8f94b0';
+	}
+
+	function int2time(val) {
+		if (!val) return '';
+		let h = Math.floor(val / 60), m = val % 60;
+		if (m < 10)
+			m = '0' + m;
+		return (h || m) ? `${h}:${m}` : '';
+	}
+
+	function time2int(val) {
+		let v = (val || '').split(':');
+		let h = v[0], m = 0;
+		if (v.length > 1)
+			m = v[1];
+		return +h * 60 + (+m);
 	}
 };

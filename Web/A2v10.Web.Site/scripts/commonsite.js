@@ -1,6 +1,6 @@
-// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
+// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
-// 20220416-7838
+// 20250121-7976
 // app.js
 
 "use strict";
@@ -76,9 +76,9 @@
 	*/
 
 })();
-// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
+// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
-// 20240215-7960
+// 20250421-7976
 // platform/polyfills.js
 
 
@@ -130,14 +130,9 @@
 	};
 
 	date.toJSON = function (key) {
-		let nd = new Date(this);
-		let ds = 0;
-		if (nd.getFullYear() < 1925) {
-			ds = -4;
-		}
-		nd.setHours(nd.getHours(), nd.getMinutes() - nd.getTimezoneOffset(),
-			nd.getSeconds() - ds, nd.getMilliseconds());
-		return nd.toISOString().replace('Z', '');
+		// we need local time as UTC+0
+		// sv locale is used to get ISO format
+		return this.toLocaleString('sv').replace(' ', 'T') + '.000';
 	};
 
 })(Date.prototype);
@@ -177,7 +172,7 @@
 
 // Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
-// 20240325-7964
+// 20241221-7973
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -191,9 +186,11 @@ app.modules['std:utils'] = function () {
 
 	const dateOptsDate = { year: 'numeric', month: _2digit, day: _2digit };
 	const dateOptsTime = { hour: _2digit, minute: _2digit };
+	const dateOptsTime2 = { hour: _2digit, minute: _2digit, second: _2digit };
 	
 	const formatDate = new Intl.DateTimeFormat(dateLocale, dateOptsDate).format;
 	const formatTime = new Intl.DateTimeFormat(dateLocale, dateOptsTime).format;
+	const formatTime2 = new Intl.DateTimeFormat(dateLocale, dateOptsTime2).format;
 
 	const currencyFormat = new Intl.NumberFormat(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6, useGrouping: true }).format;
 	const nf = new Intl.NumberFormat(numLocale, { minimumFractionDigits: 0, maximumFractionDigits: 6, useGrouping: true });
@@ -245,7 +242,7 @@ app.modules['std:utils'] = function () {
 			equal: dateEqual,
 			isZero: dateIsZero,
 			formatDate: formatDate,
-			format: formatDate,
+			format: formatDateWithFormat,
 			add: dateAdd,
 			diff: dateDiff,
 			create: dateCreate,
@@ -256,7 +253,9 @@ app.modules['std:utils'] = function () {
 			maxDate: dateCreate(2999, 12, 31),
 			fromDays: fromDays,
 			parseTime: timeParse,
-			fromServer: dateFromServer
+			fromServer: dateFromServer,
+			int2time,
+			time2int
 		},
 		text: {
 			contains: textContains,
@@ -437,7 +436,7 @@ app.modules['std:utils'] = function () {
 		let r = simpleEval(obj, path);
 		if (skipFormat) return r;
 		if (isDate(r))
-			return format(r, dataType);
+			return format(r, dataType, opts);
 		else if (isObject(r))
 			return toJson(r);
 		else
@@ -498,14 +497,38 @@ app.modules['std:utils'] = function () {
 		return formatFunc(num);
 	}
 
+	function formatDateFormat2(date, format) {
+		if (!date) return '';
+		const parts = {
+			yyyy: date.getFullYear(),
+			yy: ('' + date.getFullYear()).substring(2),
+			MM: pad2(date.getMonth() + 1),
+			dd: pad2(date.getDate()),
+			HH: pad2(date.getHours()),
+			hh: pad2(date.getHours() > 12 ? date.getHours() - 12 : date.getHours()),
+			mm: pad2(date.getMinutes()),
+			ss: pad2(date.getSeconds()),
+			tt: date.getHours() < 12 ? 'AM' : 'PM'
+		};
+		return format.replace(/yyyy|yy|MM|dd|HH|hh|mm|ss|tt/g, (match) => parts[match]);
+	}
+
 	function formatDateWithFormat(date, format) {
 		if (!format)
 			return formatDate(date);
 		switch (format) {
+			case 'dd.MM':
+				return `${pad2(date.getDate())}.${pad2(date.getMonth() + 1)}`;
+			case 'ddMMyyyy':
+				return '' + pad2(date.getDate()) + pad2(date.getMonth() + 1) + date.getFullYear();
+			case 'dd.MM.yyyy HH:mm:ss':
+				return `${formatDate(date)}  ${formatTime2(date)}`;
+			case 'MM.yyyy':
+				return `${pad2(date.getMonth() + 1)}.${date.getFullYear()}`;
 			case 'MMMM yyyy':
 				return capitalize(date.toLocaleDateString(locale.$Locale, { month: 'long', year: 'numeric' }));
 			default:
-				console.error('invalid date format: ' + format);
+				return formatDateFormat2(date, format);
 		}
 		return formatDate(date);
 	}
@@ -528,6 +551,7 @@ app.modules['std:utils'] = function () {
 			return '';
 		switch (dataType) {
 			case "DateTime":
+			case "DateTime2":
 				if (!obj) return '';
 				if (!isDate(obj)) {
 					console.error(`Invalid Date for utils.format (${obj})`);
@@ -537,7 +561,8 @@ app.modules['std:utils'] = function () {
 					return '';
 				if (opts.format)
 					return formatDateWithFormat(obj, opts.format);
-				return formatDate(obj) + ' ' + formatTime(obj);
+				let fnTime = dataType === "DateTime2" ? formatTime2 : formatTime;
+				return `${formatDate(obj)} ${fnTime(obj)}`;
 			case "Date":
 				if (!obj) return '';
 				if (isString(obj))
@@ -1049,26 +1074,42 @@ app.modules['std:utils'] = function () {
 			'cyan': '#60bbe5',
 			'green': '#5db750',
 			'olive': '#b5cc18',
-			'white': 'white',
+			'white': '#ffffff',
 			'teal': '#00b5ad',
-			'tan': 'tan',
+			'tan': '#d2b48c',      // tan,
 			'red': '#da533f',
-			'blue': 'cornflowerblue',
+			'blue': '#6495ed',     //cornflowerblue
 			'orange': '#ffb74d',
-			'seagreen': 'darkseagreen',
+			'seagreen': '#8fbc8f', // darkseagreen
 			'null': '#8f94b0',
 			'gold': '#eac500',
-			'salmon': 'salmon',
-			'purple': 'mediumpurple',
-			'pink': 'hotpink',
-			'magenta': 'darkmagenta',
-			'lightgray': '#ccc'
+			'salmon': '#fa8072',   //salmon
+			'purple': '#9370db',   // mediumpurple
+			'pink': '#ff69b4',     // hotpink
+			'magenta': '#8b008b',  // darkmagenta
+			'lightgray': '#cccccc'
 		};
 		return tagColors[style || 'null'] || '#8f94b0';
 	}
+
+	function int2time(val) {
+		if (!val) return '';
+		let h = Math.floor(val / 60), m = val % 60;
+		if (m < 10)
+			m = '0' + m;
+		return (h || m) ? `${h}:${m}` : '';
+	}
+
+	function time2int(val) {
+		let v = (val || '').split(':');
+		let h = v[0], m = 0;
+		if (v.length > 1)
+			m = v[1];
+		return +h * 60 + (+m);
+	}
 };
 
-// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
 
 /*20220626-7852*/
 /* services/url.js */
@@ -1317,7 +1358,7 @@ app.modules['std:url'] = function () {
 
 
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Oleksandr Kukhtin. All rights reserved.
 
 /*20210729-7797*/
 // services/period.js
@@ -1756,7 +1797,7 @@ app.modules['std:modelInfo'] = function () {
 
 // Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
 
-// 20240120-7958
+// 20240705-7969
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1782,6 +1823,7 @@ app.modules['std:http'] = function () {
 		if (!skipEvents)
 			eventBus.$emit('beginRequest', url);
 		let appver = '';
+		let modulever = '';
 		try {
 			var response = await fetch(url, {
 				method,
@@ -1794,6 +1836,7 @@ app.modules['std:http'] = function () {
 			});
 			let ct = response.headers.get("content-type") || '';
 			appver = response.headers.get("app-version") || '';
+			modulever = response.headers.get("module-version") || '';
 			switch (response.status) {
 				case 200:
 					if (raw)
@@ -1832,8 +1875,8 @@ app.modules['std:http'] = function () {
 		finally {
 			if (!skipEvents) {
 				eventBus.$emit('endRequest', url);
-				if (appver)
-					eventBus.$emit('checkVersion', appver);
+				if (appver || modulever)
+					eventBus.$emit('checkVersion', { app: appver, module: modulever });
 			}
 		}
 	}
@@ -2006,7 +2049,7 @@ app.modules['std:http'] = function () {
 
 
 
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Oleksandr Kukhtin. All rights reserved.
 
 /*20210104-7738*/
 /* services/log.js */
@@ -2096,7 +2139,7 @@ app.modules['std:console'] = function () {
 		}
 	}
 };
-// Copyright © 2015-2021 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2021 Oleksandr Kukhtin. All rights reserved.
 
 /*20210223-7751*/
 /*validators.js*/
@@ -2766,9 +2809,9 @@ Vue.component('a2-pager', {
 });
 
 
-// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
+// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
-/*20240227-7961*/
+/*20250202-7977*/
 /* services/impl/array.js */
 
 app.modules['std:impl:array'] = function () {
@@ -3146,7 +3189,7 @@ app.modules['std:impl:array'] = function () {
 		});
 
 		defPropertyGet(arr, "$hasChecked", function () {
-			return this.$checked && this.$checked.length;
+			return !!(this.$checked && this.$checked.length);
 		});
 	}
 
@@ -3160,12 +3203,16 @@ app.modules['std:impl:array'] = function () {
 		};
 
 		proto.$select = function (root) {
+			if (!root && this.$findTreeRoot)
+				root = this.$findTreeRoot();
 			let arr = root || this._parent_;
+
 			let sel = arr.$selected;
 			if (sel === this) return;
 			if (sel) sel.$selected = false;
 			this.$selected = true;
 			emitSelect(arr, this);
+
 			if (this._meta_.$items) {
 				// expand all parent items
 				let p = this._parent_._parent_;
@@ -3208,9 +3255,9 @@ app.modules['std:impl:array'] = function () {
 	}
 };
 
-/* Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.*/
+/* Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.*/
 
-/*20240405-7963*/
+/*20250512-7985*/
 // services/datamodel.js
 
 /*
@@ -3331,7 +3378,10 @@ app.modules['std:impl:array'] = function () {
 				break;
 			case TMarker: // marker for dynamic property
 				let mp = trg._meta_.markerProps[prop];
-				shadow[prop] = mp;
+				if (utils.isDefined(mp.type) && utils.isDefined(mp.value))
+					shadow[prop] = mp.value;
+				else
+					shadow[prop] = mp;
 				break;
 			case period.constructor:
 				shadow[prop] = new propCtor(source[prop]);
@@ -3396,6 +3446,7 @@ app.modules['std:impl:array'] = function () {
 		if (objname in props) {
 			for (let p in props[objname]) {
 				let propInfo = props[objname][p];
+				if (!propInfo) continue;
 				if (utils.isPrimitiveCtor(propInfo)) {
 					loginfo(`create scalar property: ${objname}.${p}`);
 					elem._meta_.props[p] = propInfo;
@@ -3421,6 +3472,7 @@ app.modules['std:impl:array'] = function () {
 		if (objname in props) {
 			for (let p in props[objname]) {
 				let propInfo = props[objname][p];
+				if (!propInfo) continue;
 				if (utils.isPrimitiveCtor(propInfo)) {
 					continue;
 				}
@@ -3454,6 +3506,16 @@ app.modules['std:impl:array'] = function () {
 			if (this.$expanded) return null;
 			let coll = this[this._meta_.$items];
 			return this.$vm.$expand(this, this._meta_.$items, true);
+		};
+		elem.$findTreeRoot = function () {
+			let p = this;
+			let r = null;
+			while (p && p !== this.$root) {
+				if (p._meta_ && p._meta_.$items)
+					r = p;
+				p = p._parent_;
+			}
+			return r ? r._parent_ : null;
 		};
 		elem.$selectPath = async function (arr, cb) {
 			if (!arr.length) return null;
@@ -3573,12 +3635,20 @@ app.modules['std:impl:array'] = function () {
 			defPropertyGet(elem, "$groupName", function () {
 				if (!utils.isDefined(this.$level))
 					return ERR_STR;
+				// !!! $level присваивается только в TreeSection!
 				// this.constructor.name == objectType;
 				const mi = this._root_.__modelInfo.Levels;
 				if (mi) {
 					const levs = mi[this.constructor.name];
-					if (levs && this.$level <= levs.length)
-						return this[levs[this.$level - 1]];
+					if (levs && this.$level <= levs.length) {
+						let xv = this[levs[this.$level - 1]];
+						if (!xv) return '';
+						if (utils.isObjectExact(xv))
+							return xv.$name;
+						else if (utils.isDate(xv))
+							return utils.format(xv, 'Date');
+						return xv;
+					}
 				}
 				console.error('invalid data for $groupName');
 				return ERR_STR;
@@ -3596,8 +3666,9 @@ app.modules['std:impl:array'] = function () {
 		}
 
 		function setDefaults(root) {
-			if (!root.$template || !root.$template.defaults)
-				return;
+			if (!root.$template || !root.$template.defaults) return false;
+			if (root.$isCopy) return false;
+			let called;
 			for (let p in root.$template.defaults) {
 				let px = p.lastIndexOf('.');
 				if (px === -1)
@@ -3609,12 +3680,14 @@ app.modules['std:impl:array'] = function () {
 				let def = root.$template.defaults[p];
 				let obj = utils.simpleEval(root, path);
 				if (obj.$isNew) {
+					called = true;
 					if (utils.isFunction(def))
 						platform.set(obj, prop, def.call(root, obj, prop));
 					else
 						platform.set(obj, prop, def);
 				}
 			}
+			return called;
 		}
 
 		let constructEvent = ctorname + '.construct';
@@ -3649,9 +3722,14 @@ app.modules['std:impl:array'] = function () {
 
 			elem._modelLoad_ = (caller) => {
 				_lastCaller = caller;
-				setDefaults(elem);
+				elem._setDefaults_();
 				elem._fireLoad_();
 				__initialized__ = true;
+			};
+
+			elem._setDefaults_ = () => {
+				if (setDefaults(elem))
+					elem.$emit('Model.defaults', elem);
 			};
 
 			elem._fireLoad_ = () => {
@@ -4260,6 +4338,8 @@ app.modules['std:impl:array'] = function () {
 		if (this.$root.$readOnly)
 			return;
 		this.$root.$emit('Model.dirty.change', val, `${path}.${prop}`);
+		if (this.$vm && this.$vm.isIndex)
+			return;
 		if (isNoDirty(this.$root))
 			return;
 		if (path && path.toLowerCase().startsWith('query'))
@@ -4790,7 +4870,7 @@ app.modules['std:impl:array'] = function () {
 		}
 	});
 })();
-// Copyright © 2015-2022 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2022 Oleksandr Kukhtin. All rights reserved.
 
 // 20221002-7894
 // components/modal.js
@@ -5051,7 +5131,7 @@ app.modules['std:impl:array'] = function () {
 
 	app.components['std:modal'] = modalComponent;
 })();
-// Copyright © 2015-2020 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2020 Oleksandr Kukhtin. All rights reserved.
 
 // 20200819-7703
 // components/waitcursor.js
@@ -5632,7 +5712,7 @@ app.modules['std:impl:array'] = function () {
 
 	app.components['standaloneController'] = standalone;
 })();
-// Copyright © 2020-2022 Alex Kukhtin. All rights reserved.
+// Copyright © 2020-2022 Oleksandr Kukhtin. All rights reserved.
 
 /*20220816-7880*/
 /* controllers/navmenu.js */

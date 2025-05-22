@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
 using System;
 using A2v10.Infrastructure;
@@ -40,7 +40,10 @@ public class Selector : ValuedControl, ITableControl
 	public Int32 MaxChars { get; set; }
 	public Int32 LineClamp { get; set; }
 
-	public override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
+	public Boolean Highlight { get; set; }
+
+
+    public override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 	{
 		if (CheckDisabledModel(context))
 			return;
@@ -72,14 +75,16 @@ public class Selector : ValuedControl, ITableControl
 		}
 		if (ShowCaret.HasValue && ShowCaret.Value)
 			input.MergeAttribute(":caret", "true");
-		if (ShowClear)
-			input.MergeAttribute(":has-clear", "true");
-		if (UseAll)
+        if (Highlight)
+            input.MergeAttribute(":highlight", "true");
+        if (UseAll)
 		{
             input.MergeAttribute(":has-clear", "true");
             input.MergeAttribute(":use-all", "true");
         }
-        if (MaxChars != 0)
+		else if (ShowClear)
+			input.MergeAttribute(":has-clear", "true");
+		if (MaxChars != 0)
 			input.MergeAttribute(":max-chars", MaxChars.ToString());
 		if (LineClamp != 0)
 			input.MergeAttribute(":line-clamp", LineClamp.ToString());
@@ -91,8 +96,10 @@ public class Selector : ValuedControl, ITableControl
 		var fetchData = GetBinding(nameof(FetchData));
 		if (fetchData != null)
 			input.MergeAttribute(":fetch-command-data", fetchData.GetPath(context));
+        else if (FetchData != null && FetchData.StartsWith("{"))
+            input.MergeAttribute(":fetch-command-data", FetchData);
 
-		MergeAttributes(input, context);
+        MergeAttributes(input, context);
 		MergeDisabled(input, context);
 		MergeAlign(input, context, Align);
 		MergeBindingAttributeString(input, context, "placeholder", nameof(Placeholder), Placeholder);

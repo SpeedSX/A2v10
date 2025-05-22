@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2024 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
-/*20240528-7968*/
+/*20250512-7985*/
 // controllers/base.js
 
 (function () {
@@ -223,6 +223,12 @@
 				let root = this.$data;
 				return root._canExec_(cmd, arg, opts);
 			},
+			$canExecSel(cmd, arg, opts) {
+				if (!arg) return false;
+				let sel = arg.$selected;
+				if (!sel) return false;
+				return this.$canExecute(cmd, sel, opts);
+			},
 			$setCurrentUrl(url) {
 				if (this.inDialog)
 					url = urltools.combine('_dialog', url);
@@ -280,6 +286,11 @@
 					});
 				});
 			},
+			$requeryNew(id) {
+				this.$store.commit('setnewid', { id: id });
+				this.$data.__baseUrl__ = urltools.replaceSegment(this.$data.__baseUrl__, id);
+				this.$requery();
+			},
 			$save(opts) {
 				if (this.$data.$readOnly)
 					return;
@@ -300,6 +311,9 @@
 					return;
 				}
 				self.$data.$emit('Model.beforeSave', self.$data);
+
+				if (!this.$data.$dirty)
+					return; // may be changed
 
 				let saveSels = self.$data._saveSelections();
 
@@ -379,6 +393,17 @@
 				eventBus.$emit('showSidePane', newurl);
 			},
 
+			$hideSidePane() {
+				eventBus.$emit('showSidePane', null);
+			},
+			async $longOperation(action) {
+				try {
+					eventBus.$emit('beginRequest', '');
+					await action();
+				} finally {
+					eventBus.$emit('endRequest', '');
+				}
+			},
 			$invoke(cmd, data, base, opts) {
 				let self = this;
 				let root = window.$$rootUrl;
@@ -479,6 +504,7 @@
 							modelInfo.reconcileAll(data.$ModelInfo);
 							dat._setModelInfo_(undefined, data);
 							dat._setRuntimeInfo_(data.$runtime);
+							dat._setDefaults_();
 							dat._fireLoad_();
 							dat._restoreSelections(saveSels);
 							resolve(dat);
@@ -603,32 +629,40 @@
 
 			$file(url, arg, opts, dat) {
 				eventBus.$emit('closeAllPopups');
-				const root = window.$$rootUrl;
-				let id = arg;
-				let token = undefined;
-				if (arg && utils.isObject(arg)) {
-					id = utils.getStringId(arg);
-					if (arg._meta_ && arg._meta_.$token)
-						token = arg[arg._meta_.$token];
+				const doFile = () => {
+					const root = window.$$rootUrl;
+					let id = arg;
+					let token = undefined;
+					if (arg && utils.isObject(arg)) {
+						id = utils.getStringId(arg);
+						if (arg._meta_ && arg._meta_.$token)
+							token = arg[arg._meta_.$token];
+					}
+					let fileUrl = urltools.combine(root, '_file', url, id);
+					let qry = dat || {};
+					let action = (opts || {}).action;
+					if (token)
+						qry.token = token;
+					if (action == 'download')
+						qry.export = 1;
+					fileUrl += urltools.makeQueryString(qry);
+					switch (action) {
+						case 'download':
+							htmlTools.downloadUrl(fileUrl);
+							break;
+						case 'print':
+							htmlTools.printDirect(fileUrl);
+							break;
+						default:
+							window.open(fileUrl, '_blank');
+					}
 				}
-				let fileUrl = urltools.combine(root, '_file', url, id);
-				let qry = dat || {};
-				let action = (opts || {}).action;
-				if (token)
-					qry.token = token;
-				if (action == 'download')
-					qry.export = 1;
-				fileUrl += urltools.makeQueryString(qry);
-				switch (action) {
-					case 'download':
-						htmlTools.downloadUrl(fileUrl);
-						break;
-					case 'print':
-						htmlTools.printDirect(fileUrl);
-						break;
-					default:
-						window.open(fileUrl, '_blank');
-				}
+				if (opts && opts.saveRequired && this.$isDirty) {
+					this.$save().then(() => {
+						doFile();
+					});
+				} else
+					doFile();
 			},
 
 			$attachment(url, arg, opts) {
@@ -1022,6 +1056,8 @@
 					// attention! from css!
 					let padding = tbl.classList.contains('compact') ? 4 : 12;
 					htmlTools.getRowHeight(tbl, padding);
+					// after colWidth, rowHeight!
+					tbl = htmlTools.purgeTable(tbl);
 				}
 				const dateLocale = locale.$DateLocale || locale.$Locale;
 				const numLocale = locale.$NumberLocale || locale.$Locale;
@@ -1092,9 +1128,8 @@
 					this.$save().then(() => {
 						doReport();
 					});
-				} else {
+				} else
 					doReport();
-				}
 			},
 
 			$modalSaveAndClose(result, opts) {
@@ -1478,7 +1513,10 @@
 					$emitGlobal: this.$emitGlobal,
 					$emitParentTab: this.$emitParentTab,
 					$nodirty: this.$nodirty,
-					$showSidePane: this.$showSidePane
+					$showSidePane: this.$showSidePane,
+					$hideSidePane: this.$hideSidePane,
+					$longOperation: this.$longOperation,
+					$requeryNew: this.$requeryNew
 				};
 				Object.defineProperty(ctrl, "$isDirty", {
 					enumerable: true,

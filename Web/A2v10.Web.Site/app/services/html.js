@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2021 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
-// 20201004-7806
+// 20250307-7975
 /* services/html.js */
 
 app.modules['std:html'] = function () {
@@ -16,7 +16,8 @@ app.modules['std:html'] = function () {
 		printDirect,
 		removePrintFrame,
 		updateDocTitle,
-		uploadFile
+		uploadFile,
+		purgeTable
 	};
 
 	function getColumnsWidth(elem) {
@@ -144,6 +145,21 @@ app.modules['std:html'] = function () {
 	}
 };
 
-
+function purgeTable(tbl) {
+	let node = tbl.cloneNode(true);
+	for (let td of node.getElementsByTagName('TD')) {
+		if (!td.childNodes.length) continue;
+		td.removeAttribute('title');
+		let qs = td.querySelector('.popover-wrapper, .hlink-dd-wrapper');
+		if (!qs) continue;
+		if (!qs.childNodes.length) continue;
+		for (let c of qs.childNodes) {
+			if (c.nodeType != c.ELEMENT_NODE) continue;
+			td.innerText = c.innerText;
+			break;
+		}
+	}
+	return node;
+}
 
 

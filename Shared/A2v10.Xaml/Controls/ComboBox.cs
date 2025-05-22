@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2023 Oleksandr Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2025 Oleksandr Kukhtin. All rights reserved.
 
 using System;
 using System.Collections.Generic;
@@ -12,7 +12,8 @@ public class ComboBoxItem : UIElementBase
 	public String Content { get; set; }
 	public Object Value { get; set; }
 	public Boolean Bold { get; set; }
-	public override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
+	public Object CssClass { get; set; }
+    public override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 	{
 		if (SkipRender(context))
 			return;
@@ -66,8 +67,9 @@ public class ComboBox : ValuedControl, ITableControl
 	public TextAlign Align { get; set; }
 	public ComboBoxStyle Style { get; set; }
 	public String GroupBy { get; set; }
+    public Boolean Highlight { get; set; }
 
-	ComboBoxItems _children;
+    ComboBoxItems _children;
 
 	public ComboBoxItems Children
 	{
@@ -97,7 +99,9 @@ public class ComboBox : ValuedControl, ITableControl
 			combo.MergeAttribute("groupby", GroupBy);
 		MergeAttributes(combo, context);
 		MergeAlign(combo, context, Align);
-		MergeBoolAttribute(combo, context, nameof(ShowValue), ShowValue);
+        if (Highlight)
+            combo.MergeAttribute(":highlight", "true");
+        MergeBoolAttribute(combo, context, nameof(ShowValue), ShowValue);
 		SetSize(combo, nameof(ComboBox));
 		MergeDisabled(combo, context);
 		var isBind = GetBinding(nameof(ItemsSource));
@@ -120,6 +124,9 @@ public class ComboBox : ValuedControl, ITableControl
 				var boldBind = elem.GetBinding("Bold");
 				if (boldBind != null)
 					combo.MergeAttribute(":bold-prop", $"'{boldBind.Path}'"); /*without context!*/
+				var cssClassBind = elem.GetBinding(nameof(ComboBoxItem.CssClass));
+				if (cssClassBind != null)
+					combo.MergeAttribute(":css-class-prop", $"'{cssClassBind.Path}'"); /*without context!*/
 			}
 		}
 		MergeValue(combo, context);

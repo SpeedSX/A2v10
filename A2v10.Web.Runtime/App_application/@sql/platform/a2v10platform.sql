@@ -1,6 +1,6 @@
 ﻿/*
 version: 10.0.7911
-generated: 10.06.2024 10:29:56
+generated: 22.05.2025 10:46:05
 */
 
 set nocount on;
